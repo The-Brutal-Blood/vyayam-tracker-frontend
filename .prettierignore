@@ -1,0 +1,18 @@
+# Dependencies
+node_modules/
+vendor/
+
+# Native projects
+android/
+ios/
+
+# Build output
+coverage/
+dist/
+build/
+
+# Lockfiles & generated
+package-lock.json
+Gemfile.lock
+*.log
+.DS_Store
