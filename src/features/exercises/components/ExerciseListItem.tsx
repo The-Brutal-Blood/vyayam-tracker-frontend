@@ -1,9 +1,9 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, View } from 'react-native';
 
-import { CheckIcon, TrendingUpCircleIcon } from '@/components/icons/ActionIcons';
+import { CheckIcon, InfoIcon } from '@/components/icons/ActionIcons';
 import { Text } from '@/components/ui';
-import { colors, radius, spacing } from '@/theme';
+import { colors, radius, shadows, spacing } from '@/theme';
 
 import type { Exercise } from '../types/exercise.types';
 
@@ -67,7 +67,7 @@ export const ExerciseListItem = React.memo(function ExerciseListItemBase({
           hitSlop={spacing.sm}
           style={({ pressed }) => [styles.infoButton, pressed && styles.infoButtonPressed]}
         >
-          <TrendingUpCircleIcon color={colors.textSecondary} size={24} />
+          <InfoIcon color={colors.textPrimary} size={20} />
         </Pressable>
       ) : null}
     </Pressable>
@@ -122,8 +122,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: INFO_BUTTON_SIZE / 2,
+    backgroundColor: colors.surfaceElevated,
+    borderWidth: StyleSheet.hairlineWidth,
+    borderColor: colors.border,
+    ...shadows.sm,
   },
   infoButtonPressed: {
-    backgroundColor: colors.surfaceElevated,
+    backgroundColor: colors.surface,
+    borderColor: colors.primary,
   },
 });

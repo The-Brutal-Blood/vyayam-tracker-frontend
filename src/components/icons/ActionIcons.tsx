@@ -115,6 +115,17 @@ export const ChevronLeftIcon = React.memo(function ChevronLeftIconBase({
   );
 });
 
+/** "i" inside a circle — opens an item's details. */
+export const InfoIcon = React.memo(function InfoIconBase({ color, size = 20 }: ActionIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={9} stroke={color} strokeWidth={STROKE_WIDTH} />
+      <Path d="M12 11.5v4.5" stroke={color} strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
+      <Circle cx={12} cy={8} r={1.1} fill={color} />
+    </Svg>
+  );
+});
+
 /** Trending-up arrow inside a circle — opens an exercise's detail/insights. */
 export const TrendingUpCircleIcon = React.memo(function TrendingUpCircleIconBase({
   color,

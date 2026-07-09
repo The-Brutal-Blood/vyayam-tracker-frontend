@@ -1,12 +1,7 @@
 import React from 'react';
 import { Image, Pressable, StyleSheet, TextInput, View } from 'react-native';
 
-import {
-  ChevronDownIcon,
-  DotsVerticalIcon,
-  PlusIcon,
-  TimerIcon,
-} from '@/components/icons/ActionIcons';
+import { DotsVerticalIcon, PlusIcon, TimerIcon } from '@/components/icons/ActionIcons';
 import { Text } from '@/components/ui';
 import { colors, radius, spacing, typography } from '@/theme';
 
@@ -95,12 +90,9 @@ export const ExerciseCard = React.memo(function ExerciseCardBase({
         <Text variant="label" color="textSecondary" style={styles.colValueLabel}>
           KG
         </Text>
-        <View style={styles.colValueRow}>
-          <Text variant="label" color="textSecondary">
-            REPS
-          </Text>
-          <ChevronDownIcon color={colors.textSecondary} size={14} />
-        </View>
+        <Text variant="label" color="textSecondary" style={styles.colValueLabel}>
+          REPS
+        </Text>
       </View>
 
       {sets.map((set, index) => (
@@ -219,13 +211,6 @@ const styles = StyleSheet.create({
   colValueLabel: {
     flex: 1,
     textAlign: 'center',
-  },
-  colValueRow: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xxs,
   },
   setRow: {
     flexDirection: 'row',
