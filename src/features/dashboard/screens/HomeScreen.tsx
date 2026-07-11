@@ -1,55 +1,109 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, StyleSheet, View } from 'react-native';
+import { useNavigation } from '@react-navigation/native';
+import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
-import { Button, Loader, Logo, Screen, Text } from '@/components/ui';
-import { useCurrentUser } from '@/hooks/useCurrentUser';
+import { Button, Screen, Text } from '@/components/ui';
+import { useWorkoutSessionContext } from '@/features/workout/context/WorkoutSessionContext';
+import { useStartWorkoutSession } from '@/features/workout/hooks/useWorkoutSession';
+import { toSessionState } from '@/features/workout/utils/workoutSession';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
+import type { AppStackParamList } from '@/navigation/AppNavigator';
 import { colors, radius, spacing } from '@/theme';
 
-const GREETING_SLIDE_DISTANCE = 16;
-const LOGO_SIZE = 48;
-/** Compensates the logo PNG's internal transparent padding at 48pt. */
-const LOGO_TRIM_LEFT = -6;
+
+import { CreateFirstRoutineCard } from '../components/CreateFirstRoutineCard';
+import { GreetingHeader } from '../components/GreetingHeader';
+import { HomeSkeleton } from '../components/HomeSkeleton';
+import { PersonalRecordCard } from '../components/PersonalRecordCard';
+import { RecentWorkoutCard } from '../components/RecentWorkoutCard';
+import { RestDayCard } from '../components/RestDayCard';
+import { StatsRow } from '../components/StatsRow';
+import { StreakCard } from '../components/StreakCard';
+import { TodayWorkoutCard } from '../components/TodayWorkoutCard';
+import { WeeklyGoalCard } from '../components/WeeklyGoalCard';
+import { useHome } from '../hooks/useHome';
+
+const CONTENT_SLIDE_DISTANCE = 24;
 
 export const HomeScreen = React.memo(function HomeScreenBase() {
-  const { data: user, isPending, isError, error, refetch } = useCurrentUser();
+  const { data, isPending, isError, error, refetch } = useHome();
 
-  // The greeting eases in once per mount — a calm arrival, not a splash.
+  const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
+  const { startSession } = useWorkoutSessionContext();
+  const startMutation = useStartWorkoutSession();
+  const [starting, setStarting] = useState(false);
+
+  // Reuse the existing workout flow: create a session, then open the live
+  // session screen (same path as the Workout tab's "Start Routine").
+  const handleStartWorkout = useCallback(
+    (routineId: string) => {
+      if (startMutation.isPending) {
+        return;
+      }
+      setStarting(true);
+      startMutation.mutate(routineId, {
+        onSuccess: session => {
+          setStarting(false);
+          const state = toSessionState(session);
+          startSession(state);
+          navigation.navigate('WorkoutSession', { initialState: state });
+        },
+        onError: err => {
+          setStarting(false);
+          Alert.alert('Could not start workout', err.message, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Try Again', onPress: () => handleStartWorkout(routineId) },
+          ]);
+        },
+      });
+    },
+    [startMutation, startSession, navigation],
+  );
+
+  const handleCreateRoutine = useCallback(() => navigation.navigate('CreateRoutine'), [navigation]);
+
+  const handleOpenRecentWorkout = useCallback(() => {
+    // TODO: navigate to Workout Details once that screen exists.
+  }, []);
+
+  // Entrance: content fades in while sliding up (matches the Workout tab).
   const reduceMotion = useReducedMotion();
-  const greetingOpacity = useRef(new Animated.Value(0)).current;
-  const greetingTranslateY = useRef(new Animated.Value(GREETING_SLIDE_DISTANCE)).current;
+  const contentOpacity = useRef(new Animated.Value(0)).current;
+  const contentTranslateY = useRef(new Animated.Value(CONTENT_SLIDE_DISTANCE)).current;
 
   useEffect(() => {
-    if (reduceMotion === null) {
+    if (reduceMotion === null || !data) {
       return undefined;
     }
     if (reduceMotion) {
-      greetingOpacity.setValue(1);
-      greetingTranslateY.setValue(0);
+      contentOpacity.setValue(1);
+      contentTranslateY.setValue(0);
       return undefined;
     }
+    const easeOut = Easing.out(Easing.cubic);
     const entrance = Animated.parallel([
-      Animated.timing(greetingOpacity, {
+      Animated.timing(contentOpacity, {
         toValue: 1,
-        duration: 500,
-        easing: Easing.out(Easing.cubic),
+        duration: 450,
+        easing: easeOut,
         useNativeDriver: true,
       }),
-      Animated.timing(greetingTranslateY, {
+      Animated.timing(contentTranslateY, {
         toValue: 0,
-        duration: 550,
-        easing: Easing.out(Easing.cubic),
+        duration: 500,
+        easing: easeOut,
         useNativeDriver: true,
       }),
     ]);
     entrance.start();
     return () => entrance.stop();
-  }, [reduceMotion, greetingOpacity, greetingTranslateY]);
+  }, [reduceMotion, data, contentOpacity, contentTranslateY]);
 
   if (isPending) {
     return (
-      <Screen edges={['top']}>
-        <Loader fullscreen />
+      <Screen scrollable edges={['top']} contentContainerStyle={styles.scrollContent}>
+        <HomeSkeleton />
       </Screen>
     );
   }
@@ -59,7 +113,7 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
       <Screen edges={['top']}>
         <View style={styles.errorState}>
           <View style={styles.errorBox} accessibilityRole="alert" accessibilityLiveRegion="polite">
-            <Text variant="bodySmall" color="error">
+            <Text variant="bodySmall" color="error" align="center">
               {error.message}
             </Text>
           </View>
@@ -69,7 +123,8 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
             size="md"
             onPress={() => refetch()}
             accessibilityLabel="Try Again"
-            accessibilityHint="Reloads your profile"
+            accessibilityHint="Reloads your home screen"
+            style={styles.retryButton}
           />
         </View>
       </Screen>
@@ -77,55 +132,84 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   }
 
   return (
-    <Screen edges={['top']}>
-      <View style={styles.root}>
-        <View
-          style={styles.brandRow}
-          accessible
-          accessibilityRole="header"
-          accessibilityLabel={`Vyayam Tracker. Signed in as ${user.fullName ?? user.email}`}
-        >
-          <Logo width={LOGO_SIZE} height={LOGO_SIZE} />
-          <Text variant="title" style={styles.brandName}>
-            {user.fullName ?? user.email}
-          </Text>
+    <Screen scrollable edges={['top']} contentContainerStyle={styles.scrollContent}>
+      <Animated.View
+        style={{ opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] }}
+      >
+        <GreetingHeader greeting={data.greeting} userName={data.userName} />
+
+        {data.streak > 0 ? (
+          <View style={styles.section}>
+            <StreakCard streak={data.streak} />
+          </View>
+        ) : null}
+
+        <View style={styles.section}>
+          {data.isRestDay ? (
+            <RestDayCard />
+          ) : data.todayWorkout ? (
+            <>
+              <Text variant="label" color="textSecondary" style={styles.sectionLabel}>
+                {"Today's Workout"}
+              </Text>
+              <TodayWorkoutCard
+                workout={data.todayWorkout}
+                onStart={handleStartWorkout}
+                starting={starting}
+              />
+            </>
+          ) : (
+            <CreateFirstRoutineCard onCreateRoutine={handleCreateRoutine} />
+          )}
         </View>
-        <Animated.View
-          style={[
-            styles.greeting,
-            { opacity: greetingOpacity, transform: [{ translateY: greetingTranslateY }] },
-          ]}
-        >
-          <Text variant="displayL">Hello,</Text>
-          <Text variant="bodyLarge" color="textSecondary" style={styles.subtitle}>
-            {"Ready for today's workout?"}
-          </Text>
-        </Animated.View>
-      </View>
+
+        {data.weeklyGoal && data.weeklyGoal.target > 0 ? (
+          <View style={styles.section}>
+            <WeeklyGoalCard goal={data.weeklyGoal} />
+          </View>
+        ) : null}
+
+        {data.recentWorkout ? (
+          <View style={styles.section}>
+            <Text variant="label" color="textSecondary" style={styles.sectionLabel}>
+              Recent Workout
+            </Text>
+            <RecentWorkoutCard workout={data.recentWorkout} onPress={handleOpenRecentWorkout} />
+          </View>
+        ) : null}
+
+        {data.latestPersonalRecord ? (
+          <View style={styles.section}>
+            <Text variant="label" color="textSecondary" style={styles.sectionLabel}>
+              Latest Personal Record
+            </Text>
+            <PersonalRecordCard record={data.latestPersonalRecord} />
+          </View>
+        ) : null}
+
+        {data.stats ? (
+          <View style={styles.section}>
+            <Text variant="label" color="textSecondary" style={styles.sectionLabel}>
+              Statistics
+            </Text>
+            <StatsRow stats={data.stats} />
+          </View>
+        ) : null}
+      </Animated.View>
     </Screen>
   );
 });
 
 const styles = StyleSheet.create({
-  root: {
-    flex: 1,
+  scrollContent: {
+    // Clearance for the bottom tab bar (and the in-progress workout bar).
+    paddingBottom: spacing['7xl'],
   },
-  brandRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.sm,
-    // The logo PNG carries internal transparent padding; a small negative
-    // pull seats it optically in the corner.
-    marginLeft: LOGO_TRIM_LEFT,
+  section: {
+    marginTop: spacing['2xl'],
   },
-  brandName: {
-    flexShrink: 1,
-  },
-  greeting: {
-    marginTop: spacing['3xl'],
-  },
-  subtitle: {
-    marginTop: spacing.md,
+  sectionLabel: {
+    marginBottom: spacing.md,
   },
   errorState: {
     flex: 1,
@@ -138,5 +222,8 @@ const styles = StyleSheet.create({
     borderColor: colors.error,
     borderRadius: radius.md,
     padding: spacing.md,
+  },
+  retryButton: {
+    alignSelf: 'center',
   },
 });

@@ -1,33 +1,88 @@
-import React, { useEffect, useRef } from 'react';
-import { Animated, Easing, StyleSheet, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Animated, Easing, StyleSheet, View } from 'react-native';
 
 import { ClipboardIcon, PlusIcon } from '@/components/icons/ActionIcons';
-import { Button, Screen, Text } from '@/components/ui';
+import { Button, Loader, Screen, Text } from '@/components/ui';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { colors, radius, spacing } from '@/theme';
 
 import { RoutineCard } from '../components/RoutineCard';
-import type { Routine } from '../types/workout.types';
+import { RoutineMenuSheet } from '../components/RoutineMenuSheet';
+import { useDeleteRoutine, useRoutinesOverview } from '../hooks/useRoutines';
+import { useStartWorkoutSession } from '../hooks/useWorkoutSession';
+import type { RoutineOverview, WorkoutSessionState } from '../types/workout.types';
+import { toSessionState } from '../utils/workoutSession';
 
 const CONTENT_SLIDE_DISTANCE = 24;
 const EMPTY_STATE_ICON_SIZE = 28;
+/** Rough duration of the menu's slide-out, before opening the editor. */
+const MENU_DISMISS_MS = 300;
 
 export interface WorkoutScreenProps {
   /** Opens the Create Routine flow. Navigation is owned by the caller. */
   onNewRoutine?: () => void;
+  /** Opens the editor to modify the given routine. Navigation is owned by the caller. */
+  onEditRoutine?: (routineId: string) => void;
+  /** Opens the editor pre-filled as a copy of the given routine. */
+  onDuplicateRoutine?: (routineId: string) => void;
+  /** Opens the live session for a freshly-started routine. */
+  onStartSession?: (state: WorkoutSessionState) => void;
 }
 
 export const WorkoutScreen = React.memo(function WorkoutScreenBase({
   onNewRoutine,
+  onEditRoutine,
+  onDuplicateRoutine,
+  onStartSession,
 }: WorkoutScreenProps) {
-  // UI-first: replaced by the routines query hook once the API lands.
-  const routines: Routine[] = [];
+  const { data: routines, isPending, isError, error, refetch } = useRoutinesOverview();
+  const routineCount = routines?.length ?? 0;
 
-  // Session/routine flows arrive with the workout API; the UI contract is
-  // final, these handlers are the integration points.
+  const deleteRoutineMutation = useDeleteRoutine();
+  const startMutation = useStartWorkoutSession();
+  const [menuRoutine, setMenuRoutine] = useState<RoutineOverview | null>(null);
+  const [startingId, setStartingId] = useState<string | null>(null);
+
   const handleStartEmptyWorkout = () => {};
-  const handleStartRoutine = (_routine: Routine) => {};
-  const handleOpenRoutineMenu = (_routine: Routine) => {};
+
+  const handleStartRoutine = useCallback(
+    (routine: RoutineOverview) => {
+      if (startMutation.isPending) {
+        return;
+      }
+      setStartingId(routine.routineId);
+      startMutation.mutate(routine.routineId, {
+        onSuccess: session => {
+          setStartingId(null);
+          onStartSession?.(toSessionState(session));
+        },
+        onError: err => {
+          setStartingId(null);
+          Alert.alert('Could not start workout', err.message, [
+            { text: 'Cancel', style: 'cancel' },
+            { text: 'Try Again', onPress: () => handleStartRoutine(routine) },
+          ]);
+        },
+      });
+    },
+    [startMutation, onStartSession],
+  );
+
+  const handleOpenRoutineMenu = (routine: RoutineOverview) => setMenuRoutine(routine);
+
+  const handleDeleteRoutine = (routine: RoutineOverview) => {
+    Alert.alert('Delete routine?', `"${routine.name}" will be permanently removed.`, [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Delete',
+        style: 'destructive',
+        onPress: () =>
+          deleteRoutineMutation.mutate(routine.routineId, {
+            onError: err => Alert.alert('Could not delete routine', err.message),
+          }),
+      },
+    ]);
+  };
 
   // Entrance: screen fades in while the content slides up.
   const reduceMotion = useReducedMotion();
@@ -108,16 +163,39 @@ export const WorkoutScreen = React.memo(function WorkoutScreenBase({
 
         <View style={styles.section}>
           <Text variant="label" color="textSecondary" style={styles.sectionLabel}>
-            {`My Routines (${routines.length})`}
+            {`My Routines (${routineCount})`}
           </Text>
-          {routines.length > 0 ? (
+          {isPending ? (
+            <Loader style={styles.loader} />
+          ) : isError ? (
+            <View
+              style={styles.errorBox}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
+              <Text variant="bodySmall" color="error" align="center">
+                {error.message}
+              </Text>
+              <Button
+                label="Try Again"
+                variant="outline"
+                size="md"
+                onPress={() => refetch()}
+                accessibilityLabel="Try Again"
+                accessibilityHint="Reloads your routines"
+                style={styles.retryButton}
+              />
+            </View>
+          ) : routines && routines.length > 0 ? (
             <View style={styles.routineList}>
               {routines.map(routine => (
                 <RoutineCard
-                  key={routine.id}
+                  key={routine.routineId}
                   routine={routine}
                   onStart={handleStartRoutine}
+                  onPress={r => onEditRoutine?.(r.routineId)}
                   onOpenMenu={handleOpenRoutineMenu}
+                  starting={startingId === routine.routineId}
                 />
               ))}
             </View>
@@ -138,6 +216,31 @@ export const WorkoutScreen = React.memo(function WorkoutScreenBase({
           )}
         </View>
       </Animated.View>
+
+      <RoutineMenuSheet
+        visible={menuRoutine != null}
+        routineName={menuRoutine?.name}
+        // Editor opens as a modal; wait for this sheet to dismiss first so iOS
+        // doesn't drop the second presentation.
+        onDuplicate={() => {
+          const id = menuRoutine?.routineId;
+          if (id) {
+            setTimeout(() => onDuplicateRoutine?.(id), MENU_DISMISS_MS);
+          }
+        }}
+        onEdit={() => {
+          const id = menuRoutine?.routineId;
+          if (id) {
+            setTimeout(() => onEditRoutine?.(id), MENU_DISMISS_MS);
+          }
+        }}
+        onDelete={() => {
+          if (menuRoutine) {
+            handleDeleteRoutine(menuRoutine);
+          }
+        }}
+        onClose={() => setMenuRoutine(null)}
+      />
     </Screen>
   );
 });
@@ -155,6 +258,21 @@ const styles = StyleSheet.create({
   },
   routineList: {
     gap: spacing.lg,
+  },
+  loader: {
+    paddingVertical: spacing['3xl'],
+  },
+  errorBox: {
+    alignItems: 'center',
+    gap: spacing.md,
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: radius.lg,
+    padding: spacing.lg,
+  },
+  retryButton: {
+    alignSelf: 'center',
   },
   emptyState: {
     alignItems: 'center',

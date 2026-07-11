@@ -115,6 +115,46 @@ export const ChevronLeftIcon = React.memo(function ChevronLeftIconBase({
   );
 });
 
+export const ChevronUpIcon = React.memo(function ChevronUpIconBase({
+  color,
+  size = 20,
+}: ActionIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="m6 15 6-6 6 6"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+});
+
+/** Trash can — discard/delete affordance. */
+export const TrashIcon = React.memo(function TrashIconBase({ color, size = 20 }: ActionIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path d="M5 7h14" stroke={color} strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
+      <Path
+        d="M8 7V5.5A1.5 1.5 0 0 1 9.5 4h5A1.5 1.5 0 0 1 16 5.5V7"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M6.5 7 7.3 19a1.5 1.5 0 0 0 1.5 1.4h6.4a1.5 1.5 0 0 0 1.5-1.4L17.5 7"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinejoin="round"
+      />
+      <Path d="M10 11v5" stroke={color} strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
+      <Path d="M14 11v5" stroke={color} strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
+    </Svg>
+  );
+});
+
 /** "i" inside a circle — opens an item's details. */
 export const InfoIcon = React.memo(function InfoIconBase({ color, size = 20 }: ActionIconProps) {
   return (
@@ -232,6 +272,49 @@ export const DragHandleIcon = React.memo(function DragHandleIconBase({
       <Path d="M4 8h16" stroke={color} strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
       <Path d="M4 12h16" stroke={color} strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
       <Path d="M4 16h16" stroke={color} strokeWidth={STROKE_WIDTH} strokeLinecap="round" />
+    </Svg>
+  );
+});
+
+/** Two stacked cards — duplicate/copy affordance. */
+export const CopyIcon = React.memo(function CopyIconBase({ color, size = 20 }: ActionIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M9 9h9a1.5 1.5 0 0 1 1.5 1.5V19A1.5 1.5 0 0 1 18 20.5H9A1.5 1.5 0 0 1 7.5 19V10.5A1.5 1.5 0 0 1 9 9Z"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinejoin="round"
+      />
+      <Path
+        d="M4.5 15V5A1.5 1.5 0 0 1 6 3.5h9"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+});
+
+/** Pencil — edit affordance. */
+export const PencilIcon = React.memo(function PencilIconBase({ color, size = 20 }: ActionIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Path
+        d="M4 20h4L18.5 9.5a2 2 0 0 0-2.83-2.83L5 17.5V20"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <Path
+        d="m14 8 2.5 2.5"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
     </Svg>
   );
 });

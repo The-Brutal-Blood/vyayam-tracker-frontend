@@ -1,5 +1,10 @@
 import React from 'react';
-import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
+import { View } from 'react-native';
+import {
+  BottomTabBar,
+  createBottomTabNavigator,
+  type BottomTabBarProps,
+} from '@react-navigation/bottom-tabs';
 import { useNavigation, type NavigatorScreenParams } from '@react-navigation/native';
 import {
   createNativeStackNavigator,
@@ -13,8 +18,15 @@ import { AddExerciseScreen } from '@/features/exercises/screens/AddExerciseScree
 import { ExerciseDetailScreen } from '@/features/exercises/screens/ExerciseDetailScreen';
 import type { Exercise } from '@/features/exercises/types/exercise.types';
 import { ProfileScreen } from '@/features/profile/screens/ProfileScreen';
+import { MinimizedWorkoutBar } from '@/features/workout/components/MinimizedWorkoutBar';
+import {
+  useWorkoutSessionContext,
+  WorkoutSessionProvider,
+} from '@/features/workout/context/WorkoutSessionContext';
 import { CreateRoutineScreen } from '@/features/workout/screens/CreateRoutineScreen';
 import { WorkoutScreen } from '@/features/workout/screens/WorkoutScreen';
+import { WorkoutSessionScreen } from '@/features/workout/screens/WorkoutSessionScreen';
+import type { WorkoutSessionState } from '@/features/workout/types/workout.types';
 import { colors, typography } from '@/theme';
 
 /**
@@ -35,11 +47,20 @@ export type AppStackParamList = {
    * single swap from the Replace flow.
    */
   CreateRoutine:
-    | { addedExercises?: Exercise[]; replacement?: { targetId: string; exercise: Exercise } }
+    | {
+        addedExercises?: Exercise[];
+        replacement?: { targetId: string; exercise: Exercise };
+        /** 'edit'/'duplicate' seed the editor from `sourceRoutineId`. */
+        mode?: 'create' | 'edit' | 'duplicate';
+        sourceRoutineId?: string;
+      }
     | undefined;
-  /** `replaceTargetId` runs the picker in single-select replace mode. */
-  AddExercise: { replaceTargetId?: string } | undefined;
+  /** `replaceTargetId` runs the picker in single-select replace mode; `returnTo`
+   * routes the selection back to the caller (routine editor or live session). */
+  AddExercise: { replaceTargetId?: string; returnTo?: 'CreateRoutine' | 'WorkoutSession' } | undefined;
   ExerciseDetail: { exerciseId: string };
+  /** `initialState` starts a fresh session; absent means resume from storage. */
+  WorkoutSession: { initialState?: WorkoutSessionState; addedExercises?: Exercise[] } | undefined;
 };
 
 const Tabs = createBottomTabNavigator<AppTabsParamList>();
@@ -53,13 +74,39 @@ const renderIcon =
 /** Bridges the navigation-agnostic WorkoutScreen into the parent stack. */
 function WorkoutRoute() {
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
-  return <WorkoutScreen onNewRoutine={() => navigation.navigate('CreateRoutine')} />;
+  const { startSession } = useWorkoutSessionContext();
+  return (
+    <WorkoutScreen
+      onNewRoutine={() => navigation.navigate('CreateRoutine')}
+      onEditRoutine={routineId =>
+        navigation.navigate('CreateRoutine', { mode: 'edit', sourceRoutineId: routineId })
+      }
+      onDuplicateRoutine={routineId =>
+        navigation.navigate('CreateRoutine', { mode: 'duplicate', sourceRoutineId: routineId })
+      }
+      onStartSession={initialState => {
+        startSession(initialState);
+        navigation.navigate('WorkoutSession', { initialState });
+      }}
+    />
+  );
+}
+
+/** Tab bar with the in-progress workout bar floating above it. */
+function AppTabBar(props: BottomTabBarProps) {
+  return (
+    <View>
+      <MinimizedWorkoutBar />
+      <BottomTabBar {...props} />
+    </View>
+  );
 }
 
 function AppTabs() {
   return (
     <Tabs.Navigator
       initialRouteName="Home"
+      tabBar={AppTabBar}
       screenOptions={{
         headerShown: false,
         animation: 'fade',
@@ -95,28 +142,36 @@ function AppTabs() {
 type CreateRoutineRouteProps = NativeStackScreenProps<AppStackParamList, 'CreateRoutine'>;
 type AddExerciseRouteProps = NativeStackScreenProps<AppStackParamList, 'AddExercise'>;
 type ExerciseDetailRouteProps = NativeStackScreenProps<AppStackParamList, 'ExerciseDetail'>;
+type WorkoutSessionRouteProps = NativeStackScreenProps<AppStackParamList, 'WorkoutSession'>;
 
 /** Save currently just dismisses; the create-routine mutation lands here. */
 function CreateRoutineRoute({ navigation, route }: CreateRoutineRouteProps) {
   return (
     <CreateRoutineScreen
+      mode={route.params?.mode}
+      sourceRoutineId={route.params?.sourceRoutineId}
       addedExercises={route.params?.addedExercises}
       replacement={route.params?.replacement}
       onAddExercise={() => navigation.navigate('AddExercise')}
       onReplaceExercise={targetId => navigation.navigate('AddExercise', { replaceTargetId: targetId })}
       onCancel={() => navigation.goBack()}
-      onSave={() => navigation.goBack()}
+      onSaved={() => navigation.goBack()}
     />
   );
 }
 
-/** Pops back to the routine draft, delivering the selection via params. */
+/** Pops back to the caller (routine draft or live session), delivering the selection. */
 function AddExerciseRoute({ navigation, route }: AddExerciseRouteProps) {
   const replaceTargetId = route.params?.replaceTargetId;
+  const returnTo = route.params?.returnTo ?? 'CreateRoutine';
   return (
     <AddExerciseScreen
       onCancel={() => navigation.goBack()}
-      onDone={exercises => navigation.popTo('CreateRoutine', { addedExercises: exercises })}
+      onDone={exercises =>
+        returnTo === 'WorkoutSession'
+          ? navigation.popTo('WorkoutSession', { addedExercises: exercises })
+          : navigation.popTo('CreateRoutine', { addedExercises: exercises })
+      }
       onReplace={
         replaceTargetId
           ? exercise =>
@@ -142,19 +197,47 @@ function ExerciseDetailRoute({ navigation, route }: ExerciseDetailRouteProps) {
   );
 }
 
+/** Live workout session; finishing/discarding returns to the Workout tab. */
+function WorkoutSessionRoute({ navigation, route }: WorkoutSessionRouteProps) {
+  const { endSession } = useWorkoutSessionContext();
+  return (
+    <WorkoutSessionScreen
+      initialState={route.params?.initialState}
+      addedExercises={route.params?.addedExercises}
+      onBack={() => navigation.goBack()}
+      onFinished={() => {
+        endSession();
+        navigation.popToTop();
+      }}
+      onDiscarded={() => {
+        endSession();
+        navigation.popToTop();
+      }}
+      onAddExercise={() => navigation.navigate('AddExercise', { returnTo: 'WorkoutSession' })}
+    />
+  );
+}
+
 export function AppNavigator() {
   return (
-    <Stack.Navigator
-      screenOptions={{
-        headerShown: false,
-        contentStyle: { backgroundColor: colors.background },
-      }}
-    >
-      <Stack.Screen name="Tabs" component={AppTabs} />
+    <WorkoutSessionProvider>
+      <Stack.Navigator
+        screenOptions={{
+          headerShown: false,
+          contentStyle: { backgroundColor: colors.background },
+        }}
+      >
+        <Stack.Screen name="Tabs" component={AppTabs} />
       <Stack.Screen
         name="CreateRoutine"
         component={CreateRoutineRoute}
-        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+        // gestureEnabled:false so only Cancel (which confirms) can dismiss —
+        // a swipe-down must not silently discard the routine draft.
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: false,
+        }}
       />
       <Stack.Screen
         name="AddExercise"
@@ -166,6 +249,12 @@ export function AppNavigator() {
         component={ExerciseDetailRoute}
         options={{ animation: 'slide_from_right' }}
       />
-    </Stack.Navigator>
+      <Stack.Screen
+        name="WorkoutSession"
+        component={WorkoutSessionRoute}
+        options={{ presentation: 'modal', animation: 'slide_from_bottom', gestureEnabled: false }}
+      />
+      </Stack.Navigator>
+    </WorkoutSessionProvider>
   );
 }

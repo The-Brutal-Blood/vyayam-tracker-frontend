@@ -9,6 +9,7 @@ export const colors = {
   primary: '#FF6B2C', // energetic orange — primary actions only
   primaryLight: '#FF9159', // pressed/hover tints, gradient tops, glows
   primaryDark: '#D9531A', // pressed state on dark, gradient bottoms
+  primarySoft: '#FF6B2C29', // translucent orange (~16%) — active/completed row fills
   accent: '#FFA24C', // warm amber — highlights, streaks, active glows
 
   // Backgrounds (deep midnight navy, never pure black)

@@ -3,21 +3,21 @@ import { Alert, Animated, Easing, ScrollView, StyleSheet, TextInput, View } from
 
 import { PlusIcon } from '@/components/icons/ActionIcons';
 import { DumbbellIcon } from '@/components/icons/TabIcons';
-import { Button, Screen, Text } from '@/components/ui';
+import { Button, Loader, Screen, Text } from '@/components/ui';
 import type { Exercise } from '@/features/exercises/types/exercise.types';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
-import { colors, spacing, typography } from '@/theme';
+import { colors, radius, spacing, typography } from '@/theme';
 
 import { ExerciseCard } from '../components/ExerciseCard';
 import { ExerciseMenuSheet } from '../components/ExerciseMenuSheet';
 import { ReorderExercisesModal } from '../components/ReorderExercisesModal';
 import { RestTimerSheet } from '../components/RestTimerSheet';
-import type { RoutineExerciseDraft } from '../types/workout.types';
+import { WeeklyScheduler } from '../components/WeeklyScheduler';
+import { useCreateRoutine, useRoutineDetail, useUpdateRoutine } from '../hooks/useRoutines';
+import type { RoutineDetail, RoutineExerciseDraft, Weekday } from '../types/workout.types';
+import { buildCreateRoutinePayload } from '../utils/routinePayload';
 
-export interface RoutineDraft {
-  name: string;
-  exercises: RoutineExerciseDraft[];
-}
+export type RoutineEditorMode = 'create' | 'edit' | 'duplicate';
 
 /** Replacement handed back by the library when swapping one exercise for another. */
 export interface ExerciseReplacement {
@@ -26,6 +26,10 @@ export interface ExerciseReplacement {
 }
 
 export interface CreateRoutineScreenProps {
+  /** Editor mode. 'edit'/'duplicate' seed the form from `sourceRoutineId`. */
+  mode?: RoutineEditorMode;
+  /** Routine to load for edit (also the PUT target) or duplicate. */
+  sourceRoutineId?: string;
   /** Exercises returned by the Add Exercise flow; merged into the draft. */
   addedExercises?: Exercise[];
   /** A swap returned by the library's replace flow; applied to the target slot. */
@@ -36,8 +40,8 @@ export interface CreateRoutineScreenProps {
   onReplaceExercise?: (targetId: string) => void;
   /** Dismisses the screen without saving. Navigation is owned by the caller. */
   onCancel?: () => void;
-  /** Fired with the draft when Save is pressed. Persistence is wired later. */
-  onSave?: (draft: RoutineDraft) => void;
+  /** Fired after the routine is persisted. Navigation is owned by the caller. */
+  onSaved?: () => void;
 }
 
 const EMPTY_STATE_ICON_SIZE = 48;
@@ -54,23 +58,79 @@ function createEntry(exercise: Exercise, setId: string): RoutineExerciseDraft {
   };
 }
 
+/** Maps a fetched routine onto editor drafts, preserving order/sets/notes/rest. */
+function detailToEntries(
+  detail: RoutineDetail,
+  nextSetId: () => string,
+): RoutineExerciseDraft[] {
+  return [...detail.exercises]
+    .sort((a, b) => a.displayOrder - b.displayOrder)
+    .map(exercise => {
+      const sets = (exercise.sets ?? []).map(set => ({
+        id: nextSetId(),
+        kg: set.weight != null ? String(set.weight) : '',
+        reps: set.reps != null ? String(set.reps) : '',
+      }));
+      return {
+        exercise: {
+          id: exercise.exerciseId,
+          name: exercise.exerciseName,
+          imageUrl: exercise.imageUrl,
+        },
+        notes: exercise.notes ?? '',
+        restSeconds:
+          exercise.restTimerSeconds != null && exercise.restTimerSeconds > 0
+            ? exercise.restTimerSeconds
+            : null,
+        sets: sets.length > 0 ? sets : [{ id: nextSetId(), kg: '', reps: '' }],
+      };
+    });
+}
+
 export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
+  mode = 'create',
+  sourceRoutineId,
   addedExercises,
   replacement,
   onAddExercise,
   onReplaceExercise,
   onCancel,
-  onSave,
+  onSaved,
 }: CreateRoutineScreenProps) {
+  // Capture mode/source once: the Add Exercise round trip mutates route params,
+  // and we must not let an edit silently turn back into a create.
+  const [routineMode] = useState(mode);
+  const [editRoutineId] = useState(sourceRoutineId);
+
   const [name, setName] = useState('');
   const [entries, setEntries] = useState<RoutineExerciseDraft[]>([]);
+  const [scheduledDays, setScheduledDays] = useState<Weekday[]>([]);
   const [restSheetFor, setRestSheetFor] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [reorderVisible, setReorderVisible] = useState(false);
 
+  const createRoutineMutation = useCreateRoutine();
+  const updateRoutineMutation = useUpdateRoutine();
+
+  const needsDetail = routineMode !== 'create' && !!editRoutineId;
+  const detailQuery = useRoutineDetail(editRoutineId ?? '', needsDetail);
+
   // Monotonic set-id source so React keys stay stable across add/remove.
   const setSeq = useRef(0);
   const nextSetId = useCallback(() => `set-${setSeq.current++}`, []);
+
+  // Seed the form once the source routine loads (edit/duplicate).
+  const seededRef = useRef(false);
+  useEffect(() => {
+    if (seededRef.current || !needsDetail || !detailQuery.data) {
+      return;
+    }
+    seededRef.current = true;
+    const detail = detailQuery.data;
+    setName(routineMode === 'duplicate' ? `${detail.name} (copy)` : detail.name);
+    setEntries(detailToEntries(detail, nextSetId));
+    setScheduledDays(detail.scheduledDays ?? []);
+  }, [needsDetail, detailQuery.data, routineMode, nextSetId]);
 
   // Each Add Exercise round trip delivers a fresh batch; merge without
   // duplicating anything already in the draft.
@@ -183,6 +243,12 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
     });
   }, []);
 
+  const toggleDay = useCallback((day: Weekday) => {
+    setScheduledDays(current =>
+      current.includes(day) ? current.filter(other => other !== day) : [...current, day],
+    );
+  }, []);
+
   const handleAddToSuperset = useCallback(() => {
     Alert.alert('Add To Superset', 'Superset support is coming soon.');
   }, []);
@@ -190,7 +256,7 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
   const menuEntry = entries.find(entry => entry.exercise.id === menuFor) ?? null;
 
   const canSave = name.trim().length > 0;
-  const isDirty = name.trim().length > 0 || entries.length > 0;
+  const isDirty = name.trim().length > 0 || entries.length > 0 || scheduledDays.length > 0;
 
   const handleCancel = () => {
     if (!isDirty) {
@@ -203,11 +269,27 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
     ]);
   };
 
+  const isSaving = createRoutineMutation.isPending || updateRoutineMutation.isPending;
+
   const handleSave = () => {
-    if (!canSave) {
+    if (!canSave || isSaving) {
       return;
     }
-    onSave?.({ name: name.trim(), exercises: entries });
+    const payload = buildCreateRoutinePayload(name, entries, scheduledDays);
+    if (routineMode === 'edit' && editRoutineId) {
+      updateRoutineMutation.mutate(
+        { id: editRoutineId, payload },
+        {
+          onSuccess: () => onSaved?.(),
+          onError: error => Alert.alert('Could not update routine', error.message),
+        },
+      );
+      return;
+    }
+    createRoutineMutation.mutate(payload, {
+      onSuccess: () => onSaved?.(),
+      onError: error => Alert.alert('Could not save routine', error.message),
+    });
   };
 
   const restSheetEntry = entries.find(entry => entry.exercise.id === restSheetFor) ?? null;
@@ -247,26 +329,50 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
             accessibilityHint="Closes without saving the routine"
           />
           <Text variant="title" accessibilityRole="header">
-            Create Routine
+            {routineMode === 'edit' ? 'Edit Routine' : 'Create Routine'}
           </Text>
           <Button
             label="Save"
             variant="primary"
             size="sm"
             disabled={!canSave}
+            loading={isSaving}
             onPress={handleSave}
             accessibilityLabel="Save"
             accessibilityHint="Saves the routine"
           />
         </View>
 
-        <ScrollView
-          style={styles.body}
-          contentContainerStyle={styles.bodyContent}
-          keyboardShouldPersistTaps="handled"
-          showsVerticalScrollIndicator={false}
-        >
-          <TextInput
+        {needsDetail && detailQuery.isPending ? (
+          <Loader fullscreen />
+        ) : needsDetail && detailQuery.isError ? (
+          <View style={styles.stateContainer}>
+            <View
+              style={styles.errorBox}
+              accessibilityRole="alert"
+              accessibilityLiveRegion="polite"
+            >
+              <Text variant="bodySmall" color="error" align="center">
+                {detailQuery.error.message}
+              </Text>
+            </View>
+            <Button
+              label="Try Again"
+              variant="outline"
+              size="md"
+              onPress={() => detailQuery.refetch()}
+              accessibilityLabel="Try Again"
+              accessibilityHint="Reloads the routine"
+            />
+          </View>
+        ) : (
+          <ScrollView
+            style={styles.body}
+            contentContainerStyle={styles.bodyContent}
+            keyboardShouldPersistTaps="handled"
+            showsVerticalScrollIndicator={false}
+          >
+            <TextInput
             value={name}
             onChangeText={setName}
             placeholder="Routine title"
@@ -278,6 +384,8 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
             accessibilityLabel="Routine title"
             accessibilityHint="Names your new routine"
           />
+
+          <WeeklyScheduler value={scheduledDays} onToggle={toggleDay} />
 
           {entries.length === 0 ? (
             <View style={styles.emptyState}>
@@ -331,7 +439,8 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
               />
             </View>
           )}
-        </ScrollView>
+          </ScrollView>
+        )}
       </Animated.View>
 
       <RestTimerSheet
@@ -432,5 +541,18 @@ const styles = StyleSheet.create({
   },
   addMoreButton: {
     marginTop: spacing.xl,
+  },
+  stateContainer: {
+    padding: spacing['3xl'],
+    gap: spacing.md,
+    alignItems: 'center',
+  },
+  errorBox: {
+    alignSelf: 'stretch',
+    backgroundColor: colors.surface,
+    borderWidth: 1,
+    borderColor: colors.error,
+    borderRadius: radius.md,
+    padding: spacing.md,
   },
 });
