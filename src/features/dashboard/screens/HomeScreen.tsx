@@ -1,9 +1,10 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, StyleSheet, View } from 'react-native';
+import { Alert, Animated, Easing, RefreshControl, StyleSheet, View } from 'react-native';
 import { useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Button, Screen, Text } from '@/components/ui';
+import { HomeAppBar } from '@/features/menu/components/HomeAppBar';
 import { useWorkoutSessionContext } from '@/features/workout/context/WorkoutSessionContext';
 import { useStartWorkoutSession } from '@/features/workout/hooks/useWorkoutSession';
 import { toSessionState } from '@/features/workout/utils/workoutSession';
@@ -27,7 +28,7 @@ import { useHome } from '../hooks/useHome';
 const CONTENT_SLIDE_DISTANCE = 24;
 
 export const HomeScreen = React.memo(function HomeScreenBase() {
-  const { data, isPending, isError, error, refetch } = useHome();
+  const { data, isPending, isError, error, refetch, isRefetching } = useHome();
 
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { startSession } = useWorkoutSessionContext();
@@ -103,6 +104,7 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   if (isPending) {
     return (
       <Screen scrollable edges={['top']} contentContainerStyle={styles.scrollContent}>
+        <HomeAppBar />
         <HomeSkeleton />
       </Screen>
     );
@@ -111,6 +113,7 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   if (isError) {
     return (
       <Screen edges={['top']}>
+        <HomeAppBar />
         <View style={styles.errorState}>
           <View style={styles.errorBox} accessibilityRole="alert" accessibilityLiveRegion="polite">
             <Text variant="bodySmall" color="error" align="center">
@@ -132,7 +135,21 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   }
 
   return (
-    <Screen scrollable edges={['top']} contentContainerStyle={styles.scrollContent}>
+    <Screen
+      scrollable
+      edges={['top']}
+      contentContainerStyle={styles.scrollContent}
+      refreshControl={
+        <RefreshControl
+          refreshing={isRefetching}
+          onRefresh={refetch}
+          tintColor={colors.primary}
+          colors={[colors.primary]}
+          progressBackgroundColor={colors.card}
+        />
+      }
+    >
+      <HomeAppBar />
       <Animated.View
         style={{ opacity: contentOpacity, transform: [{ translateY: contentTranslateY }] }}
       >

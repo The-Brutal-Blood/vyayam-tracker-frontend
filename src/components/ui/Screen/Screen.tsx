@@ -6,6 +6,7 @@ import {
   StatusBar,
   StyleSheet,
   View,
+  type ScrollViewProps,
   type StyleProp,
   type ViewStyle,
 } from 'react-native';
@@ -25,6 +26,8 @@ export interface ScreenProps {
   edges?: readonly Edge[];
   style?: StyleProp<ViewStyle>;
   contentContainerStyle?: StyleProp<ViewStyle>;
+  /** Pull-to-refresh control; only applies when `scrollable`. */
+  refreshControl?: ScrollViewProps['refreshControl'];
 }
 
 export function Screen({
@@ -35,6 +38,7 @@ export function Screen({
   edges = ['top', 'bottom'],
   style,
   contentContainerStyle,
+  refreshControl,
 }: ScreenProps) {
   const content = scrollable ? (
     <ScrollView
@@ -42,6 +46,7 @@ export function Screen({
       contentContainerStyle={[styles.scrollContent, padded && styles.padded, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"
       showsVerticalScrollIndicator={false}
+      refreshControl={refreshControl}
     >
       {children}
     </ScrollView>
