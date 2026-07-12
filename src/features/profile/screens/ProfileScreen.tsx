@@ -1,9 +1,9 @@
-import React, { useState } from 'react';
-import { StyleSheet, View } from 'react-native';
+import React from 'react';
+import { Pressable, StyleSheet, View } from 'react-native';
 
-import { Button, Card, Divider, Loader, Screen, Text } from '@/components/ui';
+import { ChevronLeftIcon } from '@/components/icons/ActionIcons';
+import { Card, Divider, Loader, Screen, Text } from '@/components/ui';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
-import { useAuth } from '@/providers/AuthProvider';
 import { colors, radius, spacing } from '@/theme';
 import type { Gender } from '@/types/user.types';
 
@@ -56,24 +56,37 @@ const DetailRow = React.memo(function DetailRowBase({ label, value }: DetailRowP
   );
 });
 
-export const ProfileScreen = React.memo(function ProfileScreenBase() {
-  const { logout } = useAuth();
-  const { data: user, isPending } = useCurrentUser();
-  const [loggingOut, setLoggingOut] = useState(false);
+export interface ProfileScreenProps {
+  /** Returns to the caller. Rendered as a back header when provided. */
+  onBack?: () => void;
+}
 
-  const handleLogout = async () => {
-    if (loggingOut) {
-      return;
-    }
-    setLoggingOut(true);
-    // logout() never throws — server revocation is best-effort and local
-    // sign-out always completes; unmount follows via the navigator swap.
-    await logout();
-  };
+const BackHeader = React.memo(function BackHeaderBase({ onBack }: { onBack: () => void }) {
+  return (
+    <View style={styles.header}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel="Back"
+        onPress={onBack}
+        hitSlop={spacing.sm}
+        style={({ pressed }) => [styles.backButton, pressed && styles.backButtonPressed]}
+      >
+        <ChevronLeftIcon color={colors.textPrimary} size={24} />
+      </Pressable>
+      <Text variant="title" accessibilityRole="header">
+        Profile
+      </Text>
+    </View>
+  );
+});
+
+export const ProfileScreen = React.memo(function ProfileScreenBase({ onBack }: ProfileScreenProps) {
+  const { data: user, isPending } = useCurrentUser();
 
   if (isPending || !user) {
     return (
       <Screen edges={['top']}>
+        {onBack ? <BackHeader onBack={onBack} /> : null}
         <Loader fullscreen />
       </Screen>
     );
@@ -81,6 +94,7 @@ export const ProfileScreen = React.memo(function ProfileScreenBase() {
 
   return (
     <Screen scrollable edges={['top']}>
+      {onBack ? <BackHeader onBack={onBack} /> : null}
       <View style={styles.root}>
         <View style={styles.identity}>
           <View style={styles.avatar} accessibilityRole="image" accessibilityLabel="Your avatar">
@@ -112,26 +126,29 @@ export const ProfileScreen = React.memo(function ProfileScreenBase() {
             value={user.weightKg != null ? `${user.weightKg} kg` : 'Not set'}
           />
         </Card>
-
-        <View style={styles.footer}>
-          <Button
-            label="Logout"
-            variant="primary"
-            size="lg"
-            fullWidth
-            loading={loggingOut}
-            disabled={loggingOut}
-            onPress={handleLogout}
-            accessibilityLabel="Logout"
-            accessibilityHint="Signs you out of your account"
-          />
-        </View>
       </View>
     </Screen>
   );
 });
 
 const styles = StyleSheet.create({
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    height: 44,
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    marginLeft: -spacing.sm,
+    borderRadius: radius.md,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  backButtonPressed: {
+    backgroundColor: colors.surface,
+  },
   root: {
     flex: 1,
     paddingTop: spacing['2xl'],
@@ -157,10 +174,5 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingVertical: spacing.md,
-  },
-  footer: {
-    flex: 1,
-    justifyContent: 'flex-end',
-    paddingBottom: spacing.lg,
   },
 });

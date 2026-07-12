@@ -12,10 +12,11 @@ import {
   type NativeStackScreenProps,
 } from '@react-navigation/native-stack';
 
-import { DumbbellIcon, HomeIcon, UserIcon, type TabIconProps } from '@/components/icons/TabIcons';
+import { DumbbellIcon, HistoryIcon, HomeIcon, type TabIconProps } from '@/components/icons/TabIcons';
 import { AddExerciseScreen } from '@/features/exercises/screens/AddExerciseScreen';
 import { ExerciseDetailScreen } from '@/features/exercises/screens/ExerciseDetailScreen';
 import type { Exercise } from '@/features/exercises/types/exercise.types';
+import { HistoryScreen } from '@/features/history/screens/HistoryScreen';
 import { HomeWithDrawer } from '@/features/menu/screens/HomeWithDrawer';
 import { ProfileScreen } from '@/features/profile/screens/ProfileScreen';
 import { WeightTrackerScreen } from '@/features/weight/screens/WeightTrackerScreen';
@@ -38,7 +39,7 @@ import { colors, typography } from '@/theme';
 export type AppTabsParamList = {
   Home: undefined;
   Workout: undefined;
-  Profile: undefined;
+  History: undefined;
 };
 
 export type AppStackParamList = {
@@ -64,6 +65,8 @@ export type AppStackParamList = {
   WorkoutSession: { initialState?: WorkoutSessionState; addedExercises?: Exercise[] } | undefined;
   /** Placeholder fitness tool opened from the Home drawer. */
   WeightTracker: undefined;
+  /** User profile, opened from the Home drawer (moved off the bottom tabs). */
+  Profile: undefined;
 };
 
 const Tabs = createBottomTabNavigator<AppTabsParamList>();
@@ -134,9 +137,9 @@ function AppTabs() {
         options={{ tabBarIcon: renderIcon(DumbbellIcon), tabBarAccessibilityLabel: 'Workout tab' }}
       />
       <Tabs.Screen
-        name="Profile"
-        component={ProfileScreen}
-        options={{ tabBarIcon: renderIcon(UserIcon), tabBarAccessibilityLabel: 'Profile tab' }}
+        name="History"
+        component={HistoryScreen}
+        options={{ tabBarIcon: renderIcon(HistoryIcon), tabBarAccessibilityLabel: 'History tab' }}
       />
     </Tabs.Navigator>
   );
@@ -147,6 +150,7 @@ type AddExerciseRouteProps = NativeStackScreenProps<AppStackParamList, 'AddExerc
 type ExerciseDetailRouteProps = NativeStackScreenProps<AppStackParamList, 'ExerciseDetail'>;
 type WorkoutSessionRouteProps = NativeStackScreenProps<AppStackParamList, 'WorkoutSession'>;
 type WeightTrackerRouteProps = NativeStackScreenProps<AppStackParamList, 'WeightTracker'>;
+type ProfileRouteProps = NativeStackScreenProps<AppStackParamList, 'Profile'>;
 
 /** Save currently just dismisses; the create-routine mutation lands here. */
 function CreateRoutineRoute({ navigation, route }: CreateRoutineRouteProps) {
@@ -227,6 +231,11 @@ function WeightTrackerRoute({ navigation }: WeightTrackerRouteProps) {
   return <WeightTrackerScreen onBack={() => navigation.goBack()} />;
 }
 
+/** User profile opened from the Home drawer (moved off the bottom tabs). */
+function ProfileRoute({ navigation }: ProfileRouteProps) {
+  return <ProfileScreen onBack={() => navigation.goBack()} />;
+}
+
 export function AppNavigator() {
   return (
     <WorkoutSessionProvider>
@@ -266,6 +275,11 @@ export function AppNavigator() {
       <Stack.Screen
         name="WeightTracker"
         component={WeightTrackerRoute}
+        options={{ animation: 'slide_from_right' }}
+      />
+      <Stack.Screen
+        name="Profile"
+        component={ProfileRoute}
         options={{ animation: 'slide_from_right' }}
       />
       </Stack.Navigator>

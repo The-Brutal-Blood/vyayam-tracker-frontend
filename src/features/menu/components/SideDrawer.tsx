@@ -1,5 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import {
+  Alert,
   Animated,
   Easing,
   Modal,
@@ -17,6 +18,7 @@ import { Divider, Text } from '@/components/ui';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import type { AppStackParamList } from '@/navigation/AppNavigator';
+import { useAuth } from '@/providers/AuthProvider';
 import { colors, radius, shadows, spacing } from '@/theme';
 
 export interface SideDrawerProps {
@@ -31,7 +33,7 @@ const PANEL_FRACTION = 0.8;
 const OPEN_MS = 260;
 const CLOSE_MS = 220;
 
-type DrawerAction = 'weight' | 'comingSoon';
+type DrawerAction = 'weight' | 'profile' | 'logout' | 'comingSoon';
 
 interface DrawerMenuItem {
   key: string;
@@ -39,6 +41,8 @@ interface DrawerMenuItem {
   label: string;
   badge?: string;
   action: DrawerAction;
+  /** Renders the label in the error color (e.g. Logout). */
+  destructive?: boolean;
 }
 
 interface DrawerSection {
@@ -49,6 +53,10 @@ interface DrawerSection {
 // Settings-section items route through the "coming soon" toast as placeholders
 // until their real destinations exist.
 const SECTIONS: DrawerSection[] = [
+  {
+    title: 'Account',
+    items: [{ key: 'profile', emoji: '👤', label: 'My Profile', action: 'profile' }],
+  },
   {
     title: 'Fitness Tools',
     items: [
@@ -69,6 +77,7 @@ const SECTIONS: DrawerSection[] = [
       { key: 'feedback', emoji: '📩', label: 'Feedback', action: 'comingSoon' },
       // TODO: navigate to the About screen.
       { key: 'about', emoji: 'ℹ️', label: 'About', action: 'comingSoon' },
+      { key: 'logout', emoji: '🚪', label: 'Logout', action: 'logout', destructive: true },
     ],
   },
 ];
@@ -100,7 +109,12 @@ const DrawerRow = React.memo(function DrawerRowBase({ item, onPress }: DrawerRow
       style={({ pressed }) => [styles.row, pressed && styles.rowPressed]}
     >
       <Text style={styles.rowEmoji}>{item.emoji}</Text>
-      <Text variant="body" style={styles.rowLabel} numberOfLines={1}>
+      <Text
+        variant="body"
+        color={item.destructive ? 'error' : 'textPrimary'}
+        style={styles.rowLabel}
+        numberOfLines={1}
+      >
         {item.label}
       </Text>
       {item.badge ? (
@@ -128,6 +142,7 @@ export const SideDrawer = React.memo(function SideDrawerBase({
   const insets = useSafeAreaInsets();
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { data: user } = useCurrentUser();
+  const { logout } = useAuth();
   const reduceMotion = useReducedMotion();
 
   const panelWidth = width * PANEL_FRACTION;
@@ -179,13 +194,34 @@ export const SideDrawer = React.memo(function SideDrawerBase({
   const email = user?.fullName ? user.email : null;
   const initials = user ? initialsOf(user.fullName, user.email) : '🙂';
 
+  const confirmLogout = () => {
+    Alert.alert('Log out?', 'You will need to sign in again to access your workouts.', [
+      { text: 'Cancel', style: 'cancel' },
+      {
+        text: 'Log Out',
+        style: 'destructive',
+        onPress: () => {
+          logout();
+        },
+      },
+    ]);
+  };
+
   const handleItem = (item: DrawerMenuItem) => {
     onClose();
-    if (item.action === 'weight') {
-      // Let the drawer finish closing before pushing the screen.
-      setTimeout(() => navigation.navigate('WeightTracker'), CLOSE_MS);
-    } else {
-      onComingSoon(item.label);
+    // Let the drawer finish closing before pushing a screen / showing an alert.
+    switch (item.action) {
+      case 'weight':
+        setTimeout(() => navigation.navigate('WeightTracker'), CLOSE_MS);
+        break;
+      case 'profile':
+        setTimeout(() => navigation.navigate('Profile'), CLOSE_MS);
+        break;
+      case 'logout':
+        setTimeout(confirmLogout, CLOSE_MS);
+        break;
+      default:
+        onComingSoon(item.label);
     }
   };
 

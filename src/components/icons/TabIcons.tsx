@@ -70,3 +70,19 @@ export const UserIcon = React.memo(function UserIconBase({ color, size = 24 }: T
     </Svg>
   );
 });
+
+/** Clock face + hands — the History (completed workouts) tab. */
+export const HistoryIcon = React.memo(function HistoryIconBase({ color, size = 24 }: TabIconProps) {
+  return (
+    <Svg width={size} height={size} viewBox="0 0 24 24" fill="none">
+      <Circle cx={12} cy={12} r={8.5} stroke={color} strokeWidth={STROKE_WIDTH} />
+      <Path
+        d="M12 7.5V12l3.5 2"
+        stroke={color}
+        strokeWidth={STROKE_WIDTH}
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </Svg>
+  );
+});
