@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, RefreshControl, StyleSheet, View } from 'react-native';
-import { useNavigation } from '@react-navigation/native';
+import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 
 import { Button, Screen, Text } from '@/components/ui';
@@ -100,6 +100,19 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
     entrance.start();
     return () => entrance.stop();
   }, [reduceMotion, data, contentOpacity, contentTranslateY]);
+
+  // Refresh whenever the Home tab regains focus, so returning here always shows
+  // up-to-date data. The initial mount already fetches, so skip the first focus.
+  const firstFocus = useRef(true);
+  useFocusEffect(
+    useCallback(() => {
+      if (firstFocus.current) {
+        firstFocus.current = false;
+        return;
+      }
+      refetch();
+    }, [refetch]),
+  );
 
   if (isPending) {
     return (
