@@ -9,12 +9,18 @@ import type { FinishWorkoutRequest, WorkoutSession } from '../types/workout.type
 
 const ENDPOINT = '/workout-sessions';
 
-export async function startWorkoutSession(routineId: string): Promise<WorkoutSession> {
+/**
+ * Starts a session via POST /workout-sessions and normalizes the response.
+ * The request body is the only thing that varies between starting from a
+ * routine and starting empty; everything downstream (the session screen,
+ * add-exercise flow, and finish payload) is shared.
+ */
+async function startSession(body: Record<string, unknown>): Promise<WorkoutSession> {
   try {
-    const { data } = await apiClient.post<WorkoutSession>(ENDPOINT, { routineId });
+    const { data } = await apiClient.post<WorkoutSession>(ENDPOINT, body);
     return {
       ...data,
-      exercises: data.exercises.map(exercise => ({
+      exercises: (data.exercises ?? []).map(exercise => ({
         ...exercise,
         imageUrl: resolveAssetUrl(exercise.imageUrl),
       })),
@@ -22,6 +28,20 @@ export async function startWorkoutSession(routineId: string): Promise<WorkoutSes
   } catch (error) {
     throw toApiError(error);
   }
+}
+
+/** Starts a session from a routine (exercises come back prefilled). */
+export function startWorkoutSession(routineId: string): Promise<WorkoutSession> {
+  return startSession({ routineId });
+}
+
+/**
+ * Starts a blank session with no routine (empty body). The backend mints the
+ * session with an empty exercises array; exercises are added client-side and
+ * the session finishes through the exact same code path as a routine session.
+ */
+export function startEmptyWorkoutSession(): Promise<WorkoutSession> {
+  return startSession({});
 }
 
 export async function finishWorkoutSession(

@@ -17,6 +17,8 @@ export interface WorkoutExerciseCardProps {
   onAddSet: () => void;
   onRemoveSet: (setId: string) => void;
   onRemoveExercise: () => void;
+  /** Opens the rest-timer picker for this exercise. */
+  onPressRestTimer: () => void;
 }
 
 const THUMBNAIL_SIZE = 40;
@@ -31,6 +33,7 @@ export const WorkoutExerciseCard = React.memo(function WorkoutExerciseCardBase({
   onAddSet,
   onRemoveSet,
   onRemoveExercise,
+  onPressRestTimer,
 }: WorkoutExerciseCardProps) {
   const confirmRemoveExercise = () => {
     Alert.alert(exercise.exerciseName, undefined, [
@@ -77,12 +80,19 @@ export const WorkoutExerciseCard = React.memo(function WorkoutExerciseCardBase({
         accessibilityLabel={`Notes for ${exercise.exerciseName}`}
       />
 
-      <View style={styles.restRow}>
+      <Pressable
+        accessibilityRole="button"
+        accessibilityLabel={`Rest timer: ${formatRestTimer(exercise.restTimerSeconds)}`}
+        accessibilityHint="Opens the rest timer picker"
+        onPress={onPressRestTimer}
+        hitSlop={spacing.xs}
+        style={({ pressed }) => [styles.restRow, pressed && styles.restRowPressed]}
+      >
         <TimerIcon color={colors.primary} size={18} />
         <Text variant="subtitle" color="primary">
           {`Rest Timer: ${formatRestTimer(exercise.restTimerSeconds)}`}
         </Text>
-      </View>
+      </Pressable>
 
       <View style={styles.tableHeader}>
         <Text variant="label" color="textSecondary" style={columns.set}>
@@ -174,6 +184,9 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     alignSelf: 'flex-start',
     paddingVertical: spacing.sm,
+  },
+  restRowPressed: {
+    opacity: 0.6,
   },
   tableHeader: {
     flexDirection: 'row',

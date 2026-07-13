@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Animated, Easing, StyleSheet, View, type LayoutChangeEvent } from 'react-native';
 import Svg, {
   Circle,
@@ -6,6 +6,7 @@ import Svg, {
   Line,
   LinearGradient,
   Path,
+  Rect,
   Stop,
   Text as SvgText,
 } from 'react-native-svg';
@@ -14,7 +15,7 @@ import { useReducedMotion } from '@/hooks/useReducedMotion';
 import { colors } from '@/theme';
 
 import type { BodyWeightEntry } from '../types/bodyWeight.types';
-import { formatEntryDate } from '../utils/weightFormat';
+import { formatDayOrdinal, formatEntryDate } from '../utils/weightFormat';
 
 export interface WeightChartProps {
   /** Entries in chronological (oldest → newest) order. */
@@ -31,6 +32,12 @@ const PAD_TOP = 16;
 const PAD_RIGHT = 16;
 const MAX_X_LABELS = 4;
 const AXIS_FONT = 10;
+/** Intersection marker size, and the (larger, invisible) tap target around it. */
+const MARKER_RADIUS = 3;
+const HIT_RADIUS = 16;
+/** Tooltip shown when a point is tapped. */
+const TOOLTIP_FONT = 11;
+const TOOLTIP_HEIGHT = 22;
 
 type TextAnchor = 'start' | 'middle' | 'end';
 
@@ -121,6 +128,8 @@ function buildSmoothLine(points: Point[]): { d: string; length: number } {
  */
 export const WeightChart = React.memo(function WeightChartBase({ entries }: WeightChartProps) {
   const [width, setWidth] = useState(0);
+  // Index of the point whose value tooltip is showing, or null when none.
+  const [selectedIndex, setSelectedIndex] = useState<number | null>(null);
   const reduceMotion = useReducedMotion();
   const enter = useRef(new Animated.Value(0)).current;
   const draw = useRef(new Animated.Value(0)).current;
@@ -183,6 +192,15 @@ export const WeightChart = React.memo(function WeightChartBase({ entries }: Weig
     [width, entries],
   );
 
+  // Drop any open tooltip when the plotted data changes (avoids a stale index).
+  useEffect(() => {
+    setSelectedIndex(null);
+  }, [signature]);
+
+  const handleSelectPoint = useCallback((index: number) => {
+    setSelectedIndex(current => (current === index ? null : index));
+  }, []);
+
   useEffect(() => {
     if (reduceMotion === null || !chart) {
       return undefined;
@@ -231,7 +249,34 @@ export const WeightChart = React.memo(function WeightChartBase({ entries }: Weig
   const dotRadius = pop.interpolate({ inputRange: [0, 1], outputRange: [0, 5] });
   const haloRadius = pop.interpolate({ inputRange: [0, 1], outputRange: [0, 11] });
   const haloOpacity = pop.interpolate({ inputRange: [0, 1], outputRange: [0, 0.18] });
-  const currentLabelY = chart ? Math.max(AXIS_FONT + 2, chart.last.y - 12) : 0;
+  const count = entries.length;
+  const activeIndex = selectedIndex != null && selectedIndex < count ? selectedIndex : null;
+  // Tooltip box + text geometry for the selected point (clamped to the plot).
+  const tooltip = (() => {
+    if (!chart || activeIndex === null) {
+      return null;
+    }
+    const point = chart.points[activeIndex];
+    const entry = entries[activeIndex];
+    const label = `${entry.weight.toFixed(1)}, ${formatDayOrdinal(entry.date)}`;
+    const rectW = label.length * TOOLTIP_FONT * 0.62 + 16;
+    const rectX = Math.max(
+      chart.plotLeft,
+      Math.min(point.x - rectW / 2, chart.plotRight - rectW),
+    );
+    // Sit above the point; flip below when it would clip the top edge.
+    const above = point.y - TOOLTIP_HEIGHT - 12;
+    const rectY = above < PAD_TOP - 4 ? point.y + 12 : above;
+    return {
+      point,
+      label,
+      rectX,
+      rectY,
+      rectW,
+      textX: rectX + rectW / 2,
+      textY: rectY + TOOLTIP_HEIGHT / 2 + TOOLTIP_FONT / 2 - 1,
+    };
+  })();
 
   return (
     <Animated.View
@@ -290,15 +335,16 @@ export const WeightChart = React.memo(function WeightChartBase({ entries }: Weig
             />
           ) : null}
 
-          {/* Faint historical markers (skip the latest, which is highlighted) */}
+          {/* Intersection markers (the latest point keeps its highlighted look) */}
           {chart.points.slice(0, -1).map((point, index) => (
             <Circle
               key={`pt-${index}`}
               cx={point.x}
               cy={point.y}
-              r={2.5}
-              fill={colors.primary}
-              fillOpacity={0.45}
+              r={MARKER_RADIUS}
+              fill={colors.textPrimary}
+              stroke={colors.primary}
+              strokeWidth={1.5}
             />
           ))}
 
@@ -319,16 +365,54 @@ export const WeightChart = React.memo(function WeightChartBase({ entries }: Weig
           {/* Highlighted, animated latest point */}
           <AnimatedCircle cx={chart.last.x} cy={chart.last.y} r={haloRadius} fill={colors.primary} opacity={haloOpacity} />
           <AnimatedCircle cx={chart.last.x} cy={chart.last.y} r={dotRadius} fill={colors.primary} opacity={pop} />
-          <SvgText
-            x={chart.last.x}
-            y={currentLabelY}
-            fill={colors.primary}
-            fontSize={AXIS_FONT}
-            fontWeight="600"
-            textAnchor="end"
-          >
-            Current
-          </SvgText>
+
+          {/* Selected point emphasis + its value tooltip (e.g. "82.5, 13th") */}
+          {tooltip ? (
+            <React.Fragment>
+              <Circle
+                cx={tooltip.point.x}
+                cy={tooltip.point.y}
+                r={5}
+                fill={colors.primary}
+                stroke={colors.textPrimary}
+                strokeWidth={2}
+              />
+              <Rect
+                x={tooltip.rectX}
+                y={tooltip.rectY}
+                width={tooltip.rectW}
+                height={TOOLTIP_HEIGHT}
+                rx={6}
+                fill={colors.surfaceElevated}
+                stroke={colors.border}
+                strokeWidth={1}
+              />
+              <SvgText
+                x={tooltip.textX}
+                y={tooltip.textY}
+                fill={colors.textPrimary}
+                fontSize={TOOLTIP_FONT}
+                fontWeight="600"
+                textAnchor="middle"
+              >
+                {tooltip.label}
+              </SvgText>
+            </React.Fragment>
+          ) : null}
+
+          {/* Transparent tap targets over every point; kept last so taps land
+              here rather than on the markers/line beneath. */}
+          {chart.points.map((point, index) => (
+            <Circle
+              key={`hit-${index}`}
+              cx={point.x}
+              cy={point.y}
+              r={HIT_RADIUS}
+              fill={colors.textPrimary}
+              fillOpacity={0}
+              onPress={() => handleSelectPoint(index)}
+            />
+          ))}
         </Svg>
       ) : (
         <View style={styles.placeholder} />

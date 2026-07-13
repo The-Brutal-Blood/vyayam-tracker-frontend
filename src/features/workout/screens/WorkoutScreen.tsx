@@ -9,7 +9,10 @@ import { colors, radius, spacing } from '@/theme';
 import { RoutineCard } from '../components/RoutineCard';
 import { RoutineMenuSheet } from '../components/RoutineMenuSheet';
 import { useDeleteRoutine, useRoutinesOverview } from '../hooks/useRoutines';
-import { useStartWorkoutSession } from '../hooks/useWorkoutSession';
+import {
+  useStartEmptyWorkoutSession,
+  useStartWorkoutSession,
+} from '../hooks/useWorkoutSession';
 import type { RoutineOverview, WorkoutSessionState } from '../types/workout.types';
 import { toSessionState } from '../utils/workoutSession';
 
@@ -40,10 +43,23 @@ export const WorkoutScreen = React.memo(function WorkoutScreenBase({
 
   const deleteRoutineMutation = useDeleteRoutine();
   const startMutation = useStartWorkoutSession();
+  const startEmptyMutation = useStartEmptyWorkoutSession();
   const [menuRoutine, setMenuRoutine] = useState<RoutineOverview | null>(null);
   const [startingId, setStartingId] = useState<string | null>(null);
 
-  const handleStartEmptyWorkout = () => {};
+  const handleStartEmptyWorkout = useCallback(() => {
+    if (startEmptyMutation.isPending) {
+      return;
+    }
+    startEmptyMutation.mutate(undefined, {
+      onSuccess: session => onStartSession?.(toSessionState(session)),
+      onError: err =>
+        Alert.alert('Could not start workout', err.message, [
+          { text: 'Cancel', style: 'cancel' },
+          { text: 'Try Again', onPress: handleStartEmptyWorkout },
+        ]),
+    });
+  }, [startEmptyMutation, onStartSession]);
 
   const handleStartRoutine = useCallback(
     (routine: RoutineOverview) => {
@@ -138,6 +154,7 @@ export const WorkoutScreen = React.memo(function WorkoutScreenBase({
             variant="secondary"
             size="lg"
             fullWidth
+            loading={startEmptyMutation.isPending}
             leftIcon={<PlusIcon color={colors.primary} />}
             onPress={handleStartEmptyWorkout}
             accessibilityLabel="Start Empty Workout"

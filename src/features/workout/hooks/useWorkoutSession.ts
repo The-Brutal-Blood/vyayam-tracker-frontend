@@ -5,6 +5,7 @@ import type { ApiError } from '@/api/client';
 import {
   discardWorkoutSession,
   finishWorkoutSession,
+  startEmptyWorkoutSession,
   startWorkoutSession,
 } from '../services/workoutSession.service';
 import type { FinishWorkoutRequest, WorkoutSession } from '../types/workout.types';
@@ -13,6 +14,13 @@ import type { FinishWorkoutRequest, WorkoutSession } from '../types/workout.type
 export function useStartWorkoutSession() {
   return useMutation<WorkoutSession, ApiError, string>({
     mutationFn: startWorkoutSession,
+  });
+}
+
+/** Starts a blank session with no routine (POST /workout-sessions, empty body). */
+export function useStartEmptyWorkoutSession() {
+  return useMutation<WorkoutSession, ApiError, void>({
+    mutationFn: startEmptyWorkoutSession,
   });
 }
 

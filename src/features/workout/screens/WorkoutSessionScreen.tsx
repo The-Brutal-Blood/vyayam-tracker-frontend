@@ -12,6 +12,7 @@ import {
 import { colors, radius, spacing } from '@/theme';
 
 import { RestTimerBar } from '../components/RestTimerBar';
+import { RestTimerSheet } from '../components/RestTimerSheet';
 import { WorkoutExerciseCard } from '../components/WorkoutExerciseCard';
 import { WorkoutHeader } from '../components/WorkoutHeader';
 import { useElapsedSeconds, WorkoutTimer } from '../components/WorkoutTimer';
@@ -57,6 +58,8 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
 }: WorkoutSessionScreenProps) {
   const [state, setState] = useState<WorkoutSessionState | null>(initialState ?? null);
   const [restoring, setRestoring] = useState(!initialState);
+  // workoutExerciseId whose rest-timer picker is open, or null when closed.
+  const [restSheetFor, setRestSheetFor] = useState<string | null>(null);
 
   const finishMutation = useFinishWorkoutSession();
   const discardMutation = useDiscardWorkoutSession();
@@ -164,6 +167,12 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
     [updateExercise],
   );
 
+  const handleChangeRestTimer = useCallback(
+    (exerciseId: string, restTimerSeconds: number | null) =>
+      updateExercise(exerciseId, exercise => ({ ...exercise, restTimerSeconds })),
+    [updateExercise],
+  );
+
   const handleChangeSet = useCallback(
     (exerciseId: string, setId: string, field: 'weight' | 'reps', value: string) =>
       updateExercise(exerciseId, exercise => ({
@@ -240,6 +249,9 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
   const volume = useMemo(() => (state ? computeVolume(state) : 0), [state]);
   const completedSets = useMemo(() => (state ? countCompletedSets(state) : 0), [state]);
   const elapsed = useElapsedSeconds(state?.startedAt ?? '');
+  const restSheetExercise = restSheetFor
+    ? state?.exercises.find(exercise => exercise.workoutExerciseId === restSheetFor)
+    : undefined;
 
   const submitFinish = useCallback(() => {
     const current = stateRef.current;
@@ -379,6 +391,7 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
             onAddSet={() => handleAddSet(exercise.workoutExerciseId)}
             onRemoveSet={setId => handleRemoveSet(exercise.workoutExerciseId, setId)}
             onRemoveExercise={() => handleRemoveExercise(exercise.workoutExerciseId)}
+            onPressRestTimer={() => setRestSheetFor(exercise.workoutExerciseId)}
           />
         ))}
 
@@ -426,6 +439,18 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
           onSkip={rest.skip}
         />
       ) : null}
+
+      <RestTimerSheet
+        visible={restSheetExercise != null}
+        exerciseName={restSheetExercise?.exerciseName}
+        value={restSheetExercise?.restTimerSeconds ?? null}
+        onDone={seconds => {
+          if (restSheetExercise) {
+            handleChangeRestTimer(restSheetExercise.workoutExerciseId, seconds);
+          }
+        }}
+        onClose={() => setRestSheetFor(null)}
+      />
 
       {busy ? (
         <View style={styles.overlay} pointerEvents="auto">

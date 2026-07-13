@@ -28,6 +28,8 @@ export interface ScreenProps {
   contentContainerStyle?: StyleProp<ViewStyle>;
   /** Pull-to-refresh control; only applies when `scrollable`. */
   refreshControl?: ScrollViewProps['refreshControl'];
+  /** Ref to the inner ScrollView (only when `scrollable`), e.g. to scroll to top. */
+  scrollViewRef?: React.Ref<ScrollView>;
 }
 
 export function Screen({
@@ -39,9 +41,11 @@ export function Screen({
   style,
   contentContainerStyle,
   refreshControl,
+  scrollViewRef,
 }: ScreenProps) {
   const content = scrollable ? (
     <ScrollView
+      ref={scrollViewRef}
       style={styles.flex}
       contentContainerStyle={[styles.scrollContent, padded && styles.padded, contentContainerStyle]}
       keyboardShouldPersistTaps="handled"

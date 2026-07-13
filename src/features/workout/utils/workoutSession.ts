@@ -107,15 +107,22 @@ export function buildFinishPayload(
     durationSeconds,
     totalVolume: computeVolume(state),
     completedSets: countCompletedSets(state),
-    exercises: state.exercises.map(exercise => ({
-      workoutExerciseId: toServerId(exercise.workoutExerciseId, LOCAL_EXERCISE_ID_PREFIX),
-      notes: exercise.notes,
-      sets: exercise.sets.map(set => ({
-        workoutSetId: toServerId(set.workoutSetId, LOCAL_SET_ID_PREFIX),
-        actualWeight: parseNumericField(set.weight),
-        actualReps: parseNumericField(set.reps),
-        completed: set.completed,
-      })),
-    })),
+    exercises: state.exercises.map(exercise => {
+      const workoutExerciseId = toServerId(exercise.workoutExerciseId, LOCAL_EXERCISE_ID_PREFIX);
+      return {
+        workoutExerciseId,
+        // Added mid-session (no server id yet): identify it by the library
+        // exercise id so the backend can create the WorkoutExercise on finish.
+        // Exercises the session already owns are matched by workoutExerciseId.
+        ...(workoutExerciseId === null ? { exerciseId: exercise.exerciseId } : {}),
+        notes: exercise.notes,
+        sets: exercise.sets.map(set => ({
+          workoutSetId: toServerId(set.workoutSetId, LOCAL_SET_ID_PREFIX),
+          actualWeight: parseNumericField(set.weight),
+          actualReps: parseNumericField(set.reps),
+          completed: set.completed,
+        })),
+      };
+    }),
   };
 }

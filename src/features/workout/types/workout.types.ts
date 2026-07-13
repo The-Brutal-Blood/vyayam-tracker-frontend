@@ -194,6 +194,12 @@ export interface FinishWorkoutSetInput {
 export interface FinishWorkoutExerciseInput {
   /** `null` for exercises added mid-session; the backend assigns a UUID. */
   workoutExerciseId: string | null;
+  /**
+   * Library exercise id. Sent only for exercises added mid-session (when
+   * `workoutExerciseId` is null) so the backend can create the WorkoutExercise;
+   * omitted for exercises the session already owns.
+   */
+  exerciseId?: string;
   notes: string;
   sets: FinishWorkoutSetInput[];
 }

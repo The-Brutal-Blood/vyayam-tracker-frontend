@@ -23,6 +23,8 @@ export interface BodyWeightSummary {
   currentWeight: number | null;
   startingWeight: number | null;
   weightChange: number;
+  /** Mean of the last 7 logged entries; null until any entry exists. */
+  averageWeight: number | null;
   lowestWeight: number | null;
   highestWeight: number | null;
   totalEntries: number;

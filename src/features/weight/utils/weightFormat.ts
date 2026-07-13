@@ -37,3 +37,23 @@ export function formatEntryDate(dateStr: string): string {
   }
   return `${day} ${SHORT_MONTHS[month - 1]}`;
 }
+
+/** "YYYY-MM-DD" → the day of month with an ordinal suffix, e.g. "13th", "1st". */
+export function formatDayOrdinal(dateStr: string): string {
+  const day = Number(dateStr.split('-')[2]);
+  if (!day) {
+    return dateStr;
+  }
+  const teens = day % 100;
+  const suffix =
+    teens >= 11 && teens <= 13
+      ? 'th'
+      : day % 10 === 1
+        ? 'st'
+        : day % 10 === 2
+          ? 'nd'
+          : day % 10 === 3
+            ? 'rd'
+            : 'th';
+  return `${day}${suffix}`;
+}

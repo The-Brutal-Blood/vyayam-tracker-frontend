@@ -177,7 +177,10 @@ function AddExerciseRoute({ navigation, route }: AddExerciseRouteProps) {
       onCancel={() => navigation.goBack()}
       onDone={exercises =>
         returnTo === 'WorkoutSession'
-          ? navigation.popTo('WorkoutSession', { addedExercises: exercises })
+          ? // merge so the live session keeps its `initialState` param — without
+            // it, popTo replaces params, drops initialState, and the session
+            // screen reloads from storage and discards the just-added exercise.
+            navigation.popTo('WorkoutSession', { addedExercises: exercises }, { merge: true })
           : navigation.popTo('CreateRoutine', { addedExercises: exercises })
       }
       onReplace={

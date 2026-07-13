@@ -1,5 +1,13 @@
 import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Animated, Easing, RefreshControl, StyleSheet, View } from 'react-native';
+import {
+  Alert,
+  Animated,
+  Easing,
+  RefreshControl,
+  ScrollView,
+  StyleSheet,
+  View,
+} from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
 import { useQueryClient } from '@tanstack/react-query';
@@ -33,6 +41,15 @@ const CONTENT_SLIDE_DISTANCE = 24;
 /** Delay after the dashboard settles before prompting for today's weight. */
 const WEIGHT_PROMPT_DELAY_MS = 1500;
 
+/**
+ * Whether the dashboard entrance has already played this session. The Home
+ * screen remounts when returning from a full-screen flow opened via the side
+ * drawer (e.g. Weight Tracker), so a per-mount guard would replay the slide-up
+ * every time; module scope makes it play exactly once and lets later mounts
+ * render already-settled.
+ */
+let hasPlayedEntrance = false;
+
 export const HomeScreen = React.memo(function HomeScreenBase() {
   const { data, isPending, isError, error, refetch, isRefetching } = useHome();
 
@@ -46,6 +63,9 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   const logWeightMutation = useLogBodyWeight();
   const [weightSheetVisible, setWeightSheetVisible] = useState(false);
   const weightPromptedRef = useRef(false);
+  // The Home tab stays mounted, so its ScrollView keeps its offset across
+  // navigation; reset it to the top whenever the screen regains focus.
+  const scrollRef = useRef<ScrollView>(null);
 
   // Reuse the existing workout flow: create a session, then open the live
   // session screen (same path as the Workout tab's "Start Routine").
@@ -103,15 +123,22 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
 
   const handleCloseWeightSheet = useCallback(() => setWeightSheetVisible(false), []);
 
-  // Entrance: content fades in while sliding up (matches the Workout tab).
+  // Entrance: content fades in while sliding up (matches the Workout tab). Plays
+  // once per session — refs start settled on later mounts, and the trigger keys
+  // off a stable `hasData` boolean (not `data`), so a focus refetch changing the
+  // `data` reference can never restart or interrupt it.
   const reduceMotion = useReducedMotion();
-  const contentOpacity = useRef(new Animated.Value(0)).current;
-  const contentTranslateY = useRef(new Animated.Value(CONTENT_SLIDE_DISTANCE)).current;
+  const contentOpacity = useRef(new Animated.Value(hasPlayedEntrance ? 1 : 0)).current;
+  const contentTranslateY = useRef(
+    new Animated.Value(hasPlayedEntrance ? 0 : CONTENT_SLIDE_DISTANCE),
+  ).current;
+  const hasData = data != null;
 
   useEffect(() => {
-    if (reduceMotion === null || !data) {
+    if (reduceMotion === null || !hasData || hasPlayedEntrance) {
       return undefined;
     }
+    hasPlayedEntrance = true;
     if (reduceMotion) {
       contentOpacity.setValue(1);
       contentTranslateY.setValue(0);
@@ -134,13 +161,15 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
     ]);
     entrance.start();
     return () => entrance.stop();
-  }, [reduceMotion, data, contentOpacity, contentTranslateY]);
+  }, [reduceMotion, hasData, contentOpacity, contentTranslateY]);
 
   // Refresh whenever the Home tab regains focus, so returning here always shows
   // up-to-date data. The initial mount already fetches, so skip the first focus.
   const firstFocus = useRef(true);
   useFocusEffect(
     useCallback(() => {
+      // Always land at the top when returning here (the screen stays mounted).
+      scrollRef.current?.scrollTo({ y: 0, animated: false });
       if (firstFocus.current) {
         firstFocus.current = false;
         return;
@@ -200,6 +229,7 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
     <Screen
       scrollable
       edges={['top']}
+      scrollViewRef={scrollRef}
       contentContainerStyle={styles.scrollContent}
       refreshControl={
         <RefreshControl
