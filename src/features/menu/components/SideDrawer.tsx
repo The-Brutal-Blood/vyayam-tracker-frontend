@@ -46,18 +46,21 @@ interface DrawerMenuItem {
 }
 
 interface DrawerSection {
-  title: string;
+  /** Stable list key. */
+  id: string;
+  /** Section heading; omitted for the standalone logout group. */
+  title?: string;
   items: DrawerMenuItem[];
 }
 
-// Settings-section items route through the "coming soon" toast as placeholders
-// until their real destinations exist.
 const SECTIONS: DrawerSection[] = [
   {
+    id: 'account',
     title: 'Account',
     items: [{ key: 'profile', emoji: '👤', label: 'My Profile', action: 'profile' }],
   },
   {
+    id: 'tools',
     title: 'Fitness Tools',
     items: [
       { key: 'weight', emoji: '⚖️', label: 'Weight Tracker', action: 'weight' },
@@ -66,21 +69,16 @@ const SECTIONS: DrawerSection[] = [
       { key: 'nutrition', emoji: '🥗', label: 'Nutrition', badge: 'Coming Soon', action: 'comingSoon' },
     ],
   },
-  {
-    title: 'Settings',
-    items: [
-      // TODO: navigate to the Settings screen once it exists.
-      { key: 'settings', emoji: '⚙️', label: 'Settings', action: 'comingSoon' },
-      // TODO: open the platform store review flow.
-      { key: 'rate', emoji: '⭐', label: 'Rate App', action: 'comingSoon' },
-      // TODO: open the feedback form / mailto.
-      { key: 'feedback', emoji: '📩', label: 'Feedback', action: 'comingSoon' },
-      // TODO: navigate to the About screen.
-      { key: 'about', emoji: 'ℹ️', label: 'About', action: 'comingSoon' },
-      { key: 'logout', emoji: '🚪', label: 'Logout', action: 'logout', destructive: true },
-    ],
-  },
 ];
+
+// Pinned to the drawer footer so it always sits at the bottom, not mid-panel.
+const LOGOUT_ITEM: DrawerMenuItem = {
+  key: 'logout',
+  emoji: '🚪',
+  label: 'Logout',
+  action: 'logout',
+  destructive: true,
+};
 
 /** "Hemant Kashyap" → "HK"; falls back to the first letter of the email. */
 function initialsOf(fullName: string | null, email: string): string {
@@ -244,7 +242,8 @@ export const SideDrawer = React.memo(function SideDrawerBase({
           ]}
         >
           <ScrollView
-            contentContainerStyle={[styles.content, { paddingBottom: insets.bottom + spacing.xl }]}
+            style={styles.scroll}
+            contentContainerStyle={styles.content}
             showsVerticalScrollIndicator={false}
           >
             <View style={styles.header}>
@@ -266,16 +265,24 @@ export const SideDrawer = React.memo(function SideDrawerBase({
             <Divider style={styles.divider} />
 
             {SECTIONS.map(section => (
-              <View key={section.title} style={styles.section}>
-                <Text variant="label" color="textSecondary" style={styles.sectionTitle}>
-                  {section.title}
-                </Text>
+              <View key={section.id} style={styles.section}>
+                {section.title ? (
+                  <Text variant="label" color="textSecondary" style={styles.sectionTitle}>
+                    {section.title}
+                  </Text>
+                ) : null}
                 {section.items.map(item => (
                   <DrawerRow key={item.key} item={item} onPress={() => handleItem(item)} />
                 ))}
               </View>
             ))}
           </ScrollView>
+
+          <View
+            style={[styles.footer, { paddingBottom: Math.max(insets.bottom / 2, spacing.xs) }]}
+          >
+            <DrawerRow item={LOGOUT_ITEM} onPress={() => handleItem(LOGOUT_ITEM)} />
+          </View>
         </Animated.View>
       </View>
     </Modal>
@@ -302,9 +309,19 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     ...shadows.xl,
   },
+  scroll: {
+    flex: 1,
+  },
   content: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.xl,
+    paddingBottom: spacing.lg,
+  },
+  footer: {
+    paddingHorizontal: spacing.lg,
+    paddingTop: spacing.xs,
+    borderTopWidth: StyleSheet.hairlineWidth,
+    borderTopColor: colors.divider,
   },
   header: {
     paddingVertical: spacing.md,

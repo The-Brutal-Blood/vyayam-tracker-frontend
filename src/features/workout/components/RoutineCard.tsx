@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 
 import { DotsHorizontalIcon } from '@/components/icons/ActionIcons';
 import { Button, Card, Text } from '@/components/ui';
-import { colors, spacing } from '@/theme';
+import { colors, radius, spacing } from '@/theme';
 
 import type { RoutineOverview } from '../types/workout.types';
 import { formatWeekdayLabels } from '../utils/weekdays';
@@ -38,21 +38,9 @@ export const RoutineCard = React.memo(function RoutineCardBase({
     >
       <Card padding="lg">
         <View style={styles.header}>
-          <View style={styles.titleGroup}>
-            <Text variant="title" style={styles.name} numberOfLines={1}>
-              {routine.name}
-            </Text>
-            {scheduleLabel ? (
-              <Text
-                variant="caption"
-                color="textSecondary"
-                numberOfLines={1}
-                style={styles.schedule}
-              >
-                {scheduleLabel}
-              </Text>
-            ) : null}
-          </View>
+          <Text variant="title" style={styles.name} numberOfLines={1}>
+            {routine.name}
+          </Text>
           <Pressable
             accessibilityRole="button"
             accessibilityLabel={`Options for ${routine.name}`}
@@ -62,6 +50,13 @@ export const RoutineCard = React.memo(function RoutineCardBase({
             <DotsHorizontalIcon color={colors.textSecondary} />
           </Pressable>
         </View>
+        {scheduleLabel ? (
+          <View style={styles.scheduleBadge}>
+            <Text variant="caption" color="textSecondary" numberOfLines={1}>
+              {scheduleLabel}
+            </Text>
+          </View>
+        ) : null}
         <Text variant="bodySmall" color="textSecondary" numberOfLines={2} style={styles.summary}>
           {routine.exercises.join(', ')}
         </Text>
@@ -91,20 +86,19 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     gap: spacing.sm,
   },
-  titleGroup: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flexShrink: 1,
-    gap: spacing.sm,
-  },
   name: {
     flexShrink: 1,
   },
-  schedule: {
-    flexShrink: 0,
+  scheduleBadge: {
+    alignSelf: 'flex-start',
+    marginTop: spacing.sm,
+    paddingHorizontal: spacing.sm,
+    paddingVertical: spacing.xxs,
+    borderRadius: radius.sm,
+    backgroundColor: colors.background,
   },
   summary: {
-    marginTop: spacing.xs,
+    marginTop: spacing.sm,
   },
   startButton: {
     marginTop: spacing.lg,
