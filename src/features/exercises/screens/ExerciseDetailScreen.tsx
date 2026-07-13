@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Pressable, ScrollView, StyleSheet, View } from 'react-native';
 
-import { ChevronLeftIcon, ClipboardIcon } from '@/components/icons/ActionIcons';
+import { ChevronLeftIcon } from '@/components/icons/ActionIcons';
 import { Button, Loader, Screen, Text } from '@/components/ui';
 import { colors, radius, spacing } from '@/theme';
 
 import { ExerciseGif } from '../components/ExerciseGif';
+import { ExerciseHistoryTab } from '../components/ExerciseHistoryTab';
 import { useExerciseDetail } from '../hooks/useExerciseDetail';
 import type { Exercise } from '../types/exercise.types';
 
@@ -98,7 +99,7 @@ export const ExerciseDetailScreen = React.memo(function ExerciseDetailScreenBase
       ) : tab === 'summary' ? (
         <SummaryTab exercise={exercise} />
       ) : tab === 'history' ? (
-        <HistoryTab />
+        <ExerciseHistoryTab exerciseId={exerciseId} />
       ) : (
         <InstructionsTab exercise={exercise} />
       )}
@@ -138,22 +139,6 @@ function DetailRow({ label, value, last }: { label: string; value: string; last?
       </Text>
       <Text variant="subtitle" numberOfLines={2} style={styles.detailValue}>
         {value}
-      </Text>
-    </View>
-  );
-}
-
-function HistoryTab() {
-  return (
-    <View style={styles.emptyState}>
-      <View style={styles.emptyIcon}>
-        <ClipboardIcon color={colors.textSecondary} size={32} />
-      </View>
-      <Text variant="title" color="textPrimary" align="center">
-        No history yet
-      </Text>
-      <Text variant="body" color="textSecondary" align="center" style={styles.emptyText}>
-        Your logged sets for this exercise will appear here.
       </Text>
     </View>
   );
@@ -324,25 +309,6 @@ const styles = StyleSheet.create({
   },
   stepText: {
     flex: 1,
-  },
-  emptyState: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    padding: spacing['3xl'],
-    gap: spacing.md,
-  },
-  emptyIcon: {
-    width: 64,
-    height: 64,
-    borderRadius: 32,
-    backgroundColor: colors.surface,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: spacing.sm,
-  },
-  emptyText: {
-    paddingHorizontal: spacing.xl,
   },
   noInstructions: {
     marginTop: spacing['3xl'],

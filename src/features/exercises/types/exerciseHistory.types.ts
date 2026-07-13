@@ -1,0 +1,69 @@
+/**
+ * Exercise history domain models — the GET /exercises/:id/history response
+ * contract. One request returns everything the History tab renders: the last
+ * performance, a strength-progress series, aggregate statistics, and the full
+ * per-workout log (newest first).
+ */
+
+/** A completed set within a performance, read-only in the History tab. */
+export interface ExerciseHistorySet {
+  setNumber: number;
+  weight: number;
+  reps: number;
+}
+
+/** The most recent time the exercise was performed. Null when never logged. */
+export interface ExerciseLastPerformance {
+  /** ISO timestamp of the workout. */
+  performedAt: string;
+  routineName: string;
+  volume: number;
+  sets: ExerciseHistorySet[];
+}
+
+/**
+ * One point on the strength-progress series. `maxWeight` is null for workouts
+ * where no weight was recorded; those points are dropped before charting.
+ */
+export interface ExerciseProgressPoint {
+  /** "YYYY-MM-DD". */
+  date: string;
+  maxWeight: number | null;
+}
+
+/** Aggregate statistics across every logged performance. */
+export interface ExerciseHistoryStatistics {
+  timesPerformed: number;
+  totalSets: number;
+  totalVolume: number;
+  averageWeight: number;
+  averageReps: number;
+  bestVolume: number;
+  /** ISO timestamp. */
+  firstPerformedAt: string;
+  /** ISO timestamp. */
+  lastPerformedAt: string;
+}
+
+/** One completed workout that included this exercise. */
+export interface ExerciseHistoryWorkout {
+  workoutSessionId: string;
+  routineName: string;
+  /** ISO timestamp of when the workout finished. */
+  performedAt: string;
+  durationMinutes: number;
+  volume: number;
+  /** May be empty when no per-set detail was captured. */
+  sets: ExerciseHistorySet[];
+}
+
+/** Full GET /exercises/:id/history response. */
+export interface ExerciseHistory {
+  exerciseId: string;
+  exerciseName: string;
+  /** Null when the exercise has never been performed. */
+  lastPerformance: ExerciseLastPerformance | null;
+  progress: ExerciseProgressPoint[];
+  statistics: ExerciseHistoryStatistics;
+  history: ExerciseHistoryWorkout[];
+}

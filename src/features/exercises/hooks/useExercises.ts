@@ -9,6 +9,7 @@ export const exerciseKeys = {
   all: ['exercises'] as const,
   list: (filters: ExerciseFilters) => ['exercises', 'list', filters] as const,
   detail: (id: string) => ['exercises', 'detail', id] as const,
+  history: (id: string) => ['exercises', 'history', id] as const,
 };
 
 /**
