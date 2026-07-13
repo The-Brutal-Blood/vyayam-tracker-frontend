@@ -17,7 +17,9 @@ export const GreetingHeader = React.memo(function GreetingHeaderBase({
   greeting,
   userName,
 }: GreetingHeaderProps) {
-  const title = userName ? `${greeting.title}, ${userName}` : greeting.title;
+  // Only the first name keeps the greeting short and personal.
+  const firstName = userName.trim().split(/\s+/)[0];
+  const title = firstName ? `${greeting.title}, ${firstName}` : greeting.title;
   return (
     <View accessible accessibilityRole="header">
       <Text variant="displayL">{title}</Text>

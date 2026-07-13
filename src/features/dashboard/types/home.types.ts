@@ -56,4 +56,6 @@ export interface HomeSummary {
   stats: HomeStats | null;
   /** Most recent personal best; null until the user sets one. */
   latestPersonalRecord: HomePersonalRecord | null;
+  /** True when the backend wants the user prompted to log today's body weight. */
+  shouldLogWeight: boolean;
 }

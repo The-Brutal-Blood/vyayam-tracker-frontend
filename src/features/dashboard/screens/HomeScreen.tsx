@@ -2,12 +2,16 @@ import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { Alert, Animated, Easing, RefreshControl, StyleSheet, View } from 'react-native';
 import { useFocusEffect, useNavigation } from '@react-navigation/native';
 import type { NativeStackNavigationProp } from '@react-navigation/native-stack';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { Button, Screen, Text } from '@/components/ui';
 import { HomeAppBar } from '@/features/menu/components/HomeAppBar';
+import { LogWeightSheet } from '@/features/weight/components/LogWeightSheet';
+import { bodyWeightKeys, useLogBodyWeight } from '@/features/weight/hooks/useLogBodyWeight';
 import { useWorkoutSessionContext } from '@/features/workout/context/WorkoutSessionContext';
 import { useStartWorkoutSession } from '@/features/workout/hooks/useWorkoutSession';
 import { toSessionState } from '@/features/workout/utils/workoutSession';
+import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useReducedMotion } from '@/hooks/useReducedMotion';
 import type { AppStackParamList } from '@/navigation/AppNavigator';
 import { colors, radius, spacing } from '@/theme';
@@ -23,9 +27,11 @@ import { StatsRow } from '../components/StatsRow';
 import { StreakCard } from '../components/StreakCard';
 import { TodayWorkoutCard } from '../components/TodayWorkoutCard';
 import { WeeklyGoalCard } from '../components/WeeklyGoalCard';
-import { useHome } from '../hooks/useHome';
+import { homeKeys, useHome } from '../hooks/useHome';
 
 const CONTENT_SLIDE_DISTANCE = 24;
+/** Delay after the dashboard settles before prompting for today's weight. */
+const WEIGHT_PROMPT_DELAY_MS = 1500;
 
 export const HomeScreen = React.memo(function HomeScreenBase() {
   const { data, isPending, isError, error, refetch, isRefetching } = useHome();
@@ -34,6 +40,12 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   const { startSession } = useWorkoutSessionContext();
   const startMutation = useStartWorkoutSession();
   const [starting, setStarting] = useState(false);
+
+  const queryClient = useQueryClient();
+  const { data: currentUser } = useCurrentUser();
+  const logWeightMutation = useLogBodyWeight();
+  const [weightSheetVisible, setWeightSheetVisible] = useState(false);
+  const weightPromptedRef = useRef(false);
 
   // Reuse the existing workout flow: create a session, then open the live
   // session screen (same path as the Workout tab's "Start Routine").
@@ -67,6 +79,29 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   const handleOpenRecentWorkout = useCallback(() => {
     // TODO: navigate to Workout Details once that screen exists.
   }, []);
+
+  const handleSaveWeight = useCallback(
+    (weightKg: number) => {
+      if (logWeightMutation.isPending) {
+        return;
+      }
+      logWeightMutation.mutate(
+        { weight: weightKg },
+        {
+          onSuccess: () => {
+            setWeightSheetVisible(false);
+            // Refresh Home and Weight Tracker data with the new entry.
+            queryClient.invalidateQueries({ queryKey: homeKeys.summary });
+            queryClient.invalidateQueries({ queryKey: bodyWeightKeys.all });
+          },
+          onError: err => Alert.alert('Could not save weight', err.message),
+        },
+      );
+    },
+    [logWeightMutation, queryClient],
+  );
+
+  const handleCloseWeightSheet = useCallback(() => setWeightSheetVisible(false), []);
 
   // Entrance: content fades in while sliding up (matches the Workout tab).
   const reduceMotion = useReducedMotion();
@@ -113,6 +148,20 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
       refetch();
     }, [refetch]),
   );
+
+  // Prompt for today's weight shortly after the dashboard settles, when the
+  // backend asks for it. `shouldPromptWeight` flips false→true at most once, so
+  // a background refetch won't cancel the pending timer, and the ref guards
+  // against re-prompting within the same session.
+  const shouldPromptWeight = data?.shouldLogWeight === true;
+  useEffect(() => {
+    if (!shouldPromptWeight || weightPromptedRef.current) {
+      return undefined;
+    }
+    weightPromptedRef.current = true;
+    const timer = setTimeout(() => setWeightSheetVisible(true), WEIGHT_PROMPT_DELAY_MS);
+    return () => clearTimeout(timer);
+  }, [shouldPromptWeight]);
 
   if (isPending) {
     return (
@@ -226,6 +275,14 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
           </View>
         ) : null}
       </Animated.View>
+
+      <LogWeightSheet
+        visible={weightSheetVisible}
+        onClose={handleCloseWeightSheet}
+        onSave={handleSaveWeight}
+        submitting={logWeightMutation.isPending}
+        placeholderWeight={currentUser?.weightKg ?? null}
+      />
     </Screen>
   );
 });
