@@ -184,14 +184,16 @@ export interface WorkoutSessionState {
 
 /** POST /workout-sessions/:id/finish payload. */
 export interface FinishWorkoutSetInput {
-  workoutSetId: string;
+  /** `null` for sets added mid-session; the backend assigns a UUID. */
+  workoutSetId: string | null;
   actualWeight: number | null;
   actualReps: number | null;
   completed: boolean;
 }
 
 export interface FinishWorkoutExerciseInput {
-  workoutExerciseId: string;
+  /** `null` for exercises added mid-session; the backend assigns a UUID. */
+  workoutExerciseId: string | null;
   notes: string;
   sets: FinishWorkoutSetInput[];
 }

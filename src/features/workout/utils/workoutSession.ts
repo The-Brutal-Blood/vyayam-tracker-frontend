@@ -19,6 +19,19 @@ function numberToField(value: number | null): string {
   return value != null ? String(value) : '';
 }
 
+/**
+ * Prefixes for ids minted locally for rows added mid-session. They have no
+ * server identity, so the finish payload sends `null` in their place and the
+ * backend assigns real UUIDs.
+ */
+export const LOCAL_EXERCISE_ID_PREFIX = 'new-ex-';
+export const LOCAL_SET_ID_PREFIX = 'new-set-';
+
+/** A locally-minted id becomes `null`; a real server id passes through. */
+function toServerId(id: string, localPrefix: string): string | null {
+  return id.startsWith(localPrefix) ? null : id;
+}
+
 /** Maps the started session onto locally-editable state, prefilling targets. */
 export function toSessionState(session: WorkoutSession): WorkoutSessionState {
   return {
@@ -95,10 +108,10 @@ export function buildFinishPayload(
     totalVolume: computeVolume(state),
     completedSets: countCompletedSets(state),
     exercises: state.exercises.map(exercise => ({
-      workoutExerciseId: exercise.workoutExerciseId,
+      workoutExerciseId: toServerId(exercise.workoutExerciseId, LOCAL_EXERCISE_ID_PREFIX),
       notes: exercise.notes,
       sets: exercise.sets.map(set => ({
-        workoutSetId: set.workoutSetId,
+        workoutSetId: toServerId(set.workoutSetId, LOCAL_SET_ID_PREFIX),
         actualWeight: parseNumericField(set.weight),
         actualReps: parseNumericField(set.reps),
         completed: set.completed,

@@ -26,6 +26,8 @@ import {
   computeVolume,
   countCompletedSets,
   createEmptySet,
+  LOCAL_EXERCISE_ID_PREFIX,
+  LOCAL_SET_ID_PREFIX,
 } from '../utils/workoutSession';
 
 export interface WorkoutSessionScreenProps {
@@ -127,14 +129,14 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
         return current;
       }
       const additions: WorkoutExerciseState[] = fresh.map(exercise => ({
-        workoutExerciseId: `new-ex-${exSeq.current++}`,
+        workoutExerciseId: `${LOCAL_EXERCISE_ID_PREFIX}${exSeq.current++}`,
         exerciseId: exercise.id,
         exerciseName: exercise.name,
         imageUrl: exercise.imageUrl,
         restTimerSeconds: null,
         notes: '',
         previousSets: [],
-        sets: [createEmptySet(`new-set-${setSeq.current++}`, 1)],
+        sets: [createEmptySet(`${LOCAL_SET_ID_PREFIX}${setSeq.current++}`, 1)],
       }));
       return { ...current, exercises: [...current.exercises, ...additions] };
     });
@@ -204,7 +206,10 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
         const nextNumber = (exercise.sets[exercise.sets.length - 1]?.setNumber ?? 0) + 1;
         return {
           ...exercise,
-          sets: [...exercise.sets, createEmptySet(`new-set-${setSeq.current++}`, nextNumber)],
+          sets: [
+            ...exercise.sets,
+            createEmptySet(`${LOCAL_SET_ID_PREFIX}${setSeq.current++}`, nextNumber),
+          ],
         };
       }),
     [updateExercise],
