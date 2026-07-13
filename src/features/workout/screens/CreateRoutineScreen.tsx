@@ -108,6 +108,12 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
   const [restSheetFor, setRestSheetFor] = useState<string | null>(null);
   const [menuFor, setMenuFor] = useState<string | null>(null);
   const [reorderVisible, setReorderVisible] = useState(false);
+  // Set when the user taps Save without a title; drives the inline hint + shake.
+  const [titleError, setTitleError] = useState(false);
+
+  const titleInputRef = useRef<TextInput>(null);
+  // Horizontal offset for the title "shake" when Save is tapped with no title.
+  const titleShake = useRef(new Animated.Value(0)).current;
 
   const createRoutineMutation = useCreateRoutine();
   const updateRoutineMutation = useUpdateRoutine();
@@ -174,6 +180,17 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
       return next;
     });
   }, [replacement]);
+
+  // Clear the "enter a title" hint as soon as the user provides one.
+  const handleChangeName = useCallback(
+    (value: string) => {
+      setName(value);
+      if (value.trim().length > 0) {
+        setTitleError(false);
+      }
+    },
+    [],
+  );
 
   const updateEntry = useCallback(
     (exerciseId: string, updater: (entry: RoutineExerciseDraft) => RoutineExerciseDraft) => {
@@ -272,7 +289,15 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
   const isSaving = createRoutineMutation.isPending || updateRoutineMutation.isPending;
 
   const handleSave = () => {
-    if (!canSave || isSaving) {
+    if (isSaving) {
+      return;
+    }
+    // Missing title: guide the user to the field with an inline hint + shake
+    // instead of silently doing nothing.
+    if (!canSave) {
+      setTitleError(true);
+      titleInputRef.current?.focus();
+      shakeTitle();
       return;
     }
     const payload = buildCreateRoutinePayload(name, entries, scheduledDays);
@@ -297,6 +322,29 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
   // Content eases in under the modal slide.
   const reduceMotion = useReducedMotion();
   const contentOpacity = useRef(new Animated.Value(0)).current;
+
+  // Quick side-to-side nudge on the title field to flag the missing title.
+  const shakeTitle = useCallback(() => {
+    if (reduceMotion) {
+      return;
+    }
+    titleShake.setValue(0);
+    Animated.sequence(
+      [1, -1, 1, -1, 0].map(toValue =>
+        Animated.timing(titleShake, {
+          toValue,
+          duration: 55,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+      ),
+    ).start();
+  }, [reduceMotion, titleShake]);
+
+  const titleTranslateX = titleShake.interpolate({
+    inputRange: [-1, 0, 1],
+    outputRange: [-9, 0, 9],
+  });
 
   useEffect(() => {
     if (reduceMotion === null) {
@@ -335,7 +383,6 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
             label="Save"
             variant="primary"
             size="sm"
-            disabled={!canSave}
             loading={isSaving}
             onPress={handleSave}
             accessibilityLabel="Save"
@@ -372,20 +419,35 @@ export const CreateRoutineScreen = React.memo(function CreateRoutineScreenBase({
             keyboardShouldPersistTaps="handled"
             showsVerticalScrollIndicator={false}
           >
-            <TextInput
-            value={name}
-            onChangeText={setName}
-            placeholder="Routine title"
-            placeholderTextColor={colors.placeholder}
-            selectionColor={colors.primary}
-            style={styles.titleInput}
-            maxLength={60}
-            returnKeyType="done"
-            accessibilityLabel="Routine title"
-            accessibilityHint="Names your new routine"
-          />
+            <Animated.View style={{ transform: [{ translateX: titleTranslateX }] }}>
+              <TextInput
+                ref={titleInputRef}
+                value={name}
+                onChangeText={handleChangeName}
+                placeholder="Routine title"
+                placeholderTextColor={colors.placeholder}
+                selectionColor={colors.primary}
+                style={[styles.titleInput, titleError && styles.titleInputError]}
+                maxLength={60}
+                returnKeyType="done"
+                accessibilityLabel="Routine title"
+                accessibilityHint="Names your new routine"
+              />
+              {titleError ? (
+                <Text
+                  variant="bodySmall"
+                  color="error"
+                  style={styles.titleError}
+                  accessibilityLiveRegion="polite"
+                >
+                  Please enter the title to save routine
+                </Text>
+              ) : null}
+            </Animated.View>
 
-          <WeeklyScheduler value={scheduledDays} onToggle={toggleDay} />
+          {entries.length > 0 ? (
+            <WeeklyScheduler value={scheduledDays} onToggle={toggleDay} />
+          ) : null}
 
           {entries.length === 0 ? (
             <View style={styles.emptyState}>
@@ -514,6 +576,12 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.lg,
     borderBottomWidth: StyleSheet.hairlineWidth,
     borderBottomColor: colors.divider,
+  },
+  titleInputError: {
+    borderBottomColor: colors.error,
+  },
+  titleError: {
+    marginTop: spacing.sm,
   },
   bodyContent: {
     paddingBottom: spacing['3xl'],
