@@ -18,12 +18,16 @@ const GLOW_SIZE = 176;
 /**
  * The logo PNG carries internal transparent padding (see SplashScreen's -30/-34
  * compensation at 300pt). Scaled to 240pt, ~0.8x of those metrics keeps the
- * optical rhythm between logo, title and tagline identical to the splash.
+ * optical rhythm between logo and tagline identical to the splash.
  */
 const LOGO_TRIM_TOP = -24;
-const TITLE_TRIM_TOP = -27;
+const MOTIVATION_TRIM_TOP = -27;
 
-const MOTIVATION_LINES = 'Train with purpose.\nTrack every rep.\nBuild consistency.';
+const MOTIVATION_LINES = ['Train with purpose.', 'Track every rep.', 'Build consistency.'];
+
+/** Delay before the first motivation line, and gap between consecutive lines. */
+const MOTIVATION_START_MS = 300;
+const MOTIVATION_STAGGER_MS = 350;
 
 export const WelcomeScreen = React.memo(function WelcomeScreenBase({
   onCreateAccount,
@@ -32,9 +36,8 @@ export const WelcomeScreen = React.memo(function WelcomeScreenBase({
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.92)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
-  const titleOpacity = useRef(new Animated.Value(0)).current;
-  const taglineOpacity = useRef(new Animated.Value(0)).current;
-  const motivationOpacity = useRef(new Animated.Value(0)).current;
+  const lineOpacities = useRef(MOTIVATION_LINES.map(() => new Animated.Value(0))).current;
+  const lineTranslateYs = useRef(MOTIVATION_LINES.map(() => new Animated.Value(12))).current;
   const ctaOpacity = useRef(new Animated.Value(0)).current;
   const ctaTranslateY = useRef(new Animated.Value(24)).current;
 
@@ -46,9 +49,8 @@ export const WelcomeScreen = React.memo(function WelcomeScreenBase({
       logoOpacity.setValue(1);
       logoScale.setValue(1);
       glowOpacity.setValue(0.12);
-      titleOpacity.setValue(1);
-      taglineOpacity.setValue(1);
-      motivationOpacity.setValue(1);
+      lineOpacities.forEach(value => value.setValue(1));
+      lineTranslateYs.forEach(value => value.setValue(0));
       ctaOpacity.setValue(1);
       ctaTranslateY.setValue(0);
     };
@@ -61,7 +63,7 @@ export const WelcomeScreen = React.memo(function WelcomeScreenBase({
           Animated.timing(value, { toValue: 1, duration, easing: easeOut, useNativeDriver: true }),
         ]);
 
-      // Staggered reveal, top to bottom; everything lands within ~1150ms.
+      // Staggered reveal, top to bottom; everything lands within ~1650ms.
       entrance = Animated.parallel([
         Animated.timing(logoOpacity, {
           toValue: 1,
@@ -84,12 +86,24 @@ export const WelcomeScreen = React.memo(function WelcomeScreenBase({
             useNativeDriver: true,
           }),
         ]),
-        fadeIn(titleOpacity, 250),
-        fadeIn(taglineOpacity, 420),
-        fadeIn(motivationOpacity, 580),
-        fadeIn(ctaOpacity, 700, 450),
+        ...MOTIVATION_LINES.flatMap((_, index) => {
+          const delay = MOTIVATION_START_MS + index * MOTIVATION_STAGGER_MS;
+          return [
+            fadeIn(lineOpacities[index], delay),
+            Animated.sequence([
+              Animated.delay(delay),
+              Animated.timing(lineTranslateYs[index], {
+                toValue: 0,
+                duration: 400,
+                easing: easeOut,
+                useNativeDriver: true,
+              }),
+            ]),
+          ];
+        }),
+        fadeIn(ctaOpacity, 1200, 450),
         Animated.sequence([
-          Animated.delay(700),
+          Animated.delay(1200),
           Animated.timing(ctaTranslateY, {
             toValue: 0,
             duration: 450,
@@ -136,21 +150,21 @@ export const WelcomeScreen = React.memo(function WelcomeScreenBase({
               <Logo width={LOGO_SIZE} height={LOGO_SIZE} />
             </Animated.View>
           </View>
-          <Animated.View style={[styles.titleArea, { opacity: titleOpacity }]}>
-            <Text variant="displayL" align="center" accessibilityRole="header">
-              Vyayam Tracker
-            </Text>
-          </Animated.View>
-          <Animated.View style={{ opacity: taglineOpacity }}>
-            <Text variant="subtitle" color="textSecondary" align="center">
-              Strength through Abhyasa
-            </Text>
-          </Animated.View>
-          <Animated.View style={[styles.motivationArea, { opacity: motivationOpacity }]}>
-            <Text variant="body" color="textSecondary" align="center">
-              {MOTIVATION_LINES}
-            </Text>
-          </Animated.View>
+          <View style={styles.motivationArea} accessibilityRole="header">
+            {MOTIVATION_LINES.map((line, index) => (
+              <Animated.View
+                key={line}
+                style={{
+                  opacity: lineOpacities[index],
+                  transform: [{ translateY: lineTranslateYs[index] }],
+                }}
+              >
+                <Text align="center" style={styles.motivation}>
+                  {line}
+                </Text>
+              </Animated.View>
+            ))}
+          </View>
         </View>
         <Animated.View
           style={[styles.ctaArea, { opacity: ctaOpacity, transform: [{ translateY: ctaTranslateY }] }]}
@@ -202,12 +216,20 @@ const styles = StyleSheet.create({
     borderRadius: GLOW_SIZE / 2,
     backgroundColor: colors.primary,
   },
-  titleArea: {
-    marginTop: TITLE_TRIM_TOP,
-    marginBottom: spacing.sm,
-  },
   motivationArea: {
-    marginTop: spacing['3xl'],
+    marginTop: MOTIVATION_TRIM_TOP + spacing['5xl'],
+  },
+  /** Mirrors the splash tagline treatment (SplashScreen styles.tagline). */
+  motivation: {
+    fontSize: 20,
+    lineHeight: 30,
+    fontWeight: '800',
+    fontStyle: 'italic',
+    letterSpacing: 0.5,
+    color: colors.primary,
+    textShadowColor: colors.primaryLight,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 14,
   },
   ctaArea: {
     gap: spacing.md,

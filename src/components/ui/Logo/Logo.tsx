@@ -27,7 +27,7 @@ export const Logo = React.memo(function LogoBase({
   size = 'medium',
   width,
   height,
-  accessibilityLabel = 'Vyayam Tracker logo',
+  accessibilityLabel = 'Muscle Mind Streak',
   style,
 }: LogoProps) {
   const preset = presetSizes[size];
