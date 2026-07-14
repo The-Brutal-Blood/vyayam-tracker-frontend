@@ -51,7 +51,7 @@ const WEIGHT_PROMPT_DELAY_MS = 1500;
 let hasPlayedEntrance = false;
 
 export const HomeScreen = React.memo(function HomeScreenBase() {
-  const { data, isPending, isError, error, refetch, isRefetching } = useHome();
+  const { data, isPending, isError, error, refetch } = useHome();
 
   const navigation = useNavigation<NativeStackNavigationProp<AppStackParamList>>();
   const { startSession } = useWorkoutSessionContext();
@@ -66,6 +66,16 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
   // The Home tab stays mounted, so its ScrollView keeps its offset across
   // navigation; reset it to the top whenever the screen regains focus.
   const scrollRef = useRef<ScrollView>(null);
+
+  // Pull-to-refresh spinner state, driven only by a user pull. The focus/
+  // background refetch must NOT feed the RefreshControl: activating it
+  // programmatically insets the list downward, which is what left Home shifted
+  // down (and un-fixable by scrollTo) when returning from another screen.
+  const [refreshing, setRefreshing] = useState(false);
+  const handleRefresh = useCallback(() => {
+    setRefreshing(true);
+    refetch().finally(() => setRefreshing(false));
+  }, [refetch]);
 
   // Reuse the existing workout flow: create a session, then open the live
   // session screen (same path as the Workout tab's "Start Routine").
@@ -233,8 +243,8 @@ export const HomeScreen = React.memo(function HomeScreenBase() {
       contentContainerStyle={styles.scrollContent}
       refreshControl={
         <RefreshControl
-          refreshing={isRefetching}
-          onRefresh={refetch}
+          refreshing={refreshing}
+          onRefresh={handleRefresh}
           tintColor={colors.primary}
           colors={[colors.primary]}
           progressBackgroundColor={colors.card}

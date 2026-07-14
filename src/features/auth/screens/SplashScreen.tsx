@@ -23,10 +23,8 @@ export function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
   const screenOpacity = useRef(new Animated.Value(0)).current;
   const logoOpacity = useRef(new Animated.Value(0)).current;
   const logoScale = useRef(new Animated.Value(0.9)).current;
-  const titleOpacity = useRef(new Animated.Value(0)).current;
-  const titleTranslateY = useRef(new Animated.Value(14)).current;
   const taglineOpacity = useRef(new Animated.Value(0)).current;
-  const taglineTranslateY = useRef(new Animated.Value(10)).current;
+  const taglineTranslateY = useRef(new Animated.Value(12)).current;
   const glowOpacity = useRef(new Animated.Value(0)).current;
   const glowScale = useRef(new Animated.Value(1)).current;
   const loaderOpacity = useRef(new Animated.Value(0)).current;
@@ -44,8 +42,6 @@ export function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
       screenOpacity.setValue(1);
       logoOpacity.setValue(1);
       logoScale.setValue(1);
-      titleOpacity.setValue(1);
-      titleTranslateY.setValue(0);
       taglineOpacity.setValue(1);
       taglineTranslateY.setValue(0);
       glowOpacity.setValue(0.14);
@@ -127,34 +123,17 @@ export function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
           ]),
         ]),
         Animated.sequence([
-          Animated.delay(650),
-          Animated.parallel([
-            Animated.timing(titleOpacity, {
-              toValue: 1,
-              duration: 450,
-              easing: easeOut,
-              useNativeDriver: true,
-            }),
-            Animated.timing(titleTranslateY, {
-              toValue: 0,
-              duration: 450,
-              easing: easeOut,
-              useNativeDriver: true,
-            }),
-          ]),
-        ]),
-        Animated.sequence([
-          Animated.delay(850),
+          Animated.delay(700),
           Animated.parallel([
             Animated.timing(taglineOpacity, {
               toValue: 1,
-              duration: 450,
+              duration: 500,
               easing: easeOut,
               useNativeDriver: true,
             }),
             Animated.timing(taglineTranslateY, {
               toValue: 0,
-              duration: 450,
+              duration: 500,
               easing: easeOut,
               useNativeDriver: true,
             }),
@@ -223,20 +202,10 @@ export function SplashScreen({ onAnimationComplete }: SplashScreenProps) {
             </Animated.View>
           </View>
           <Animated.View
-            style={[
-              styles.titleArea,
-              { opacity: titleOpacity, transform: [{ translateY: titleTranslateY }] },
-            ]}
-          >
-            <Text variant="displayL" align="center" accessibilityRole="header">
-              Vyayam Tracker
-            </Text>
-          </Animated.View>
-          <Animated.View
             style={{ opacity: taglineOpacity, transform: [{ translateY: taglineTranslateY }] }}
           >
-            <Text variant="subtitle" color="textSecondary" align="center">
-              Strength through Abhyasa
+            <Text align="center" style={styles.tagline} accessibilityRole="header">
+              Where Mind Builds Muscle
             </Text>
           </Animated.View>
         </View>
@@ -271,9 +240,17 @@ const styles = StyleSheet.create({
     borderRadius: GLOW_SIZE / 2,
     backgroundColor: colors.primary,
   },
-  titleArea: {
-    marginTop: -34,
-    marginBottom: spacing.sm,
+  tagline: {
+    marginTop: -14,
+    fontSize: 26,
+    lineHeight: 34,
+    fontWeight: '800',
+    fontStyle: 'italic',
+    letterSpacing: 0.5,
+    color: colors.primary,
+    textShadowColor: colors.primaryLight,
+    textShadowOffset: { width: 0, height: 0 },
+    textShadowRadius: 14,
   },
   footer: {
     alignItems: 'center',
