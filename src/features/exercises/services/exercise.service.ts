@@ -1,7 +1,7 @@
 import { apiClient, resolveAssetUrl, toApiError } from '@/api/client';
 
 import type { Exercise, ExerciseFilters, Page } from '../types/exercise.types';
-import type { ExerciseHistory } from '../types/exerciseHistory.types';
+import type { ExerciseHistory, ExerciseLatestHistory } from '../types/exerciseHistory.types';
 
 /**
  * Exercise library service — the single gateway for /exercises requests.
@@ -52,6 +52,18 @@ export async function getExerciseById(id: string): Promise<Exercise> {
 export async function getExerciseHistory(id: string): Promise<ExerciseHistory> {
   try {
     const { data } = await apiClient.get<ExerciseHistory>(`${EXERCISES_ENDPOINT}/${id}/history`);
+    return data;
+  } catch (error) {
+    throw toApiError(error);
+  }
+}
+
+/** Latest completed performance; 200 with empty sets when never performed. */
+export async function getLatestExerciseHistory(id: string): Promise<ExerciseLatestHistory> {
+  try {
+    const { data } = await apiClient.get<ExerciseLatestHistory>(
+      `${EXERCISES_ENDPOINT}/${id}/history/latest`,
+    );
     return data;
   } catch (error) {
     throw toApiError(error);

@@ -42,9 +42,6 @@ export const WorkoutExerciseCard = React.memo(function WorkoutExerciseCardBase({
     ]);
   };
 
-  const previousBySetNumber = new Map(
-    exercise.previousSets.map(previous => [previous.setNumber, previous]),
-  );
 
   return (
     <View style={styles.card}>
@@ -116,7 +113,7 @@ export const WorkoutExerciseCard = React.memo(function WorkoutExerciseCardBase({
           <WorkoutSetRow
             index={index}
             set={set}
-            previous={previousBySetNumber.get(set.setNumber)}
+            previous={exercise.previousSets[index]}
             onChangeWeight={value => onChangeSet(set.workoutSetId, 'weight', value)}
             onChangeReps={value => onChangeSet(set.workoutSetId, 'reps', value)}
             onToggleComplete={() => onToggleSet(set.workoutSetId)}

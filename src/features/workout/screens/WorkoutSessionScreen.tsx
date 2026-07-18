@@ -3,6 +3,7 @@ import { Alert, AppState, Pressable, ScrollView, StyleSheet, View } from 'react-
 
 import { PlusIcon } from '@/components/icons/ActionIcons';
 import { Button, Loader, Screen, Text } from '@/components/ui';
+import { getLatestExerciseHistory } from '@/features/exercises/services/exercise.service';
 import type { Exercise } from '@/features/exercises/types/exercise.types';
 import {
   clearWorkoutSession,
@@ -142,6 +143,38 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
         sets: [createEmptySet(`${LOCAL_SET_ID_PREFIX}${setSeq.current++}`, 1)],
       }));
       return { ...current, exercises: [...current.exercises, ...additions] };
+    });
+
+    // Backfill the PREVIOUS column without blocking the UI: the exercise is
+    // already visible with empty history; fill it in when the fetch lands.
+    // A failure just leaves previousSets empty (rendered as "-").
+    addedExercises.forEach(exercise => {
+      getLatestExerciseHistory(exercise.id)
+        .then(history => {
+          if (history.sets.length === 0) {
+            return;
+          }
+          const previousSets = history.sets.map(set => ({
+            setNumber: set.setNumber,
+            weight: set.weight,
+            reps: set.reps,
+          }));
+          setState(current =>
+            current
+              ? {
+                  ...current,
+                  exercises: current.exercises.map(item =>
+                    item.exerciseId === exercise.id && item.previousSets.length === 0
+                      ? { ...item, previousSets }
+                      : item,
+                  ),
+                }
+              : current,
+          );
+        })
+        .catch(() => {
+          // Keep the exercise; PREVIOUS stays "-".
+        });
     });
   }, [addedExercises]);
 

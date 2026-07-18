@@ -109,11 +109,15 @@ export interface RoutineDetail {
  * Workout session (live logging) — POST /workout-sessions            *
  * ------------------------------------------------------------------ */
 
-/** A prior performance for a set, shown read-only in the PREVIOUS column. */
+/**
+ * A prior performance for a set, shown read-only in the PREVIOUS column.
+ * Shape shared by POST /workout-sessions (`previousSets`) and
+ * GET /exercises/:id/history/latest (`sets`).
+ */
 export interface WorkoutPreviousSet {
   setNumber: number;
-  actualWeight: number | null;
-  actualReps: number | null;
+  weight: number | null;
+  reps: number | null;
 }
 
 export interface WorkoutServerSet {

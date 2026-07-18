@@ -57,6 +57,18 @@ export interface ExerciseHistoryWorkout {
   sets: ExerciseHistorySet[];
 }
 
+/**
+ * GET /exercises/:id/history/latest response — the user's most recent
+ * completed performance. A never-performed exercise still returns 200 with
+ * `performedAt: null` and an empty `sets` array.
+ */
+export interface ExerciseLatestHistory {
+  exerciseId: string;
+  /** ISO timestamp; null when the exercise has never been performed. */
+  performedAt: string | null;
+  sets: ExerciseHistorySet[];
+}
+
 /** Full GET /exercises/:id/history response. */
 export interface ExerciseHistory {
   exerciseId: string;

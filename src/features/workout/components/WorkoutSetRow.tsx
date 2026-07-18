@@ -21,10 +21,10 @@ export interface WorkoutSetRowProps {
 const CHECK_SIZE = 28;
 
 function formatPrevious(previous?: WorkoutPreviousSet): string {
-  if (!previous || previous.actualWeight == null || previous.actualReps == null) {
+  if (!previous || previous.weight == null || previous.reps == null) {
     return '-';
   }
-  return `${previous.actualWeight} × ${previous.actualReps}`;
+  return `${previous.weight} × ${previous.reps}`;
 }
 
 /** Digits plus at most one decimal point — keyboardType alone doesn't block
