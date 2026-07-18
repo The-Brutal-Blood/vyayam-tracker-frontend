@@ -178,7 +178,7 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
       updateExercise(exerciseId, exercise => ({
         ...exercise,
         sets: exercise.sets.map(set =>
-          set.workoutSetId === setId ? { ...set, [field]: value } : set,
+          set.workoutSetId === setId ? { ...set, [field]: value, prefilled: false } : set,
         ),
       })),
     [updateExercise],
@@ -196,7 +196,9 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
       updateExercise(exerciseId, current => ({
         ...current,
         sets: current.sets.map(item =>
-          item.workoutSetId === setId ? { ...item, completed: !item.completed } : item,
+          item.workoutSetId === setId
+            ? { ...item, completed: !item.completed, prefilled: false }
+            : item,
         ),
       }));
 
@@ -212,12 +214,18 @@ export const WorkoutSessionScreen = React.memo(function WorkoutSessionScreenBase
   const handleAddSet = useCallback(
     (exerciseId: string) =>
       updateExercise(exerciseId, exercise => {
-        const nextNumber = (exercise.sets[exercise.sets.length - 1]?.setNumber ?? 0) + 1;
+        const lastSet = exercise.sets[exercise.sets.length - 1];
+        const nextNumber = (lastSet?.setNumber ?? 0) + 1;
+        const fresh = createEmptySet(`${LOCAL_SET_ID_PREFIX}${setSeq.current++}`, nextNumber);
+        // Carry the last set's values forward as a dimmed suggestion.
+        const hasCarryOver = Boolean(lastSet && (lastSet.weight !== '' || lastSet.reps !== ''));
         return {
           ...exercise,
           sets: [
             ...exercise.sets,
-            createEmptySet(`${LOCAL_SET_ID_PREFIX}${setSeq.current++}`, nextNumber),
+            hasCarryOver
+              ? { ...fresh, weight: lastSet!.weight, reps: lastSet!.reps, prefilled: true }
+              : fresh,
           ],
         };
       }),

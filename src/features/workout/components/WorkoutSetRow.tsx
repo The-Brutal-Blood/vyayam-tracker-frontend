@@ -6,6 +6,7 @@ import { Text } from '@/components/ui';
 import { colors, radius, spacing, typography } from '@/theme';
 
 import type { WorkoutPreviousSet, WorkoutSetState } from '../types/workout.types';
+import { parseNumericField } from '../utils/workoutSession';
 
 export interface WorkoutSetRowProps {
   index: number;
@@ -26,6 +27,22 @@ function formatPrevious(previous?: WorkoutPreviousSet): string {
   return `${previous.actualWeight} × ${previous.actualReps}`;
 }
 
+/** Digits plus at most one decimal point — keyboardType alone doesn't block
+ *  letters from paste or external keyboards. */
+function sanitizeWeight(value: string): string {
+  const cleaned = value.replace(/[^0-9.]/g, '');
+  const firstDot = cleaned.indexOf('.');
+  if (firstDot === -1) {
+    return cleaned;
+  }
+  return cleaned.slice(0, firstDot + 1) + cleaned.slice(firstDot + 1).replace(/\./g, '');
+}
+
+/** Whole numbers only. */
+function sanitizeReps(value: string): string {
+  return value.replace(/[^0-9]/g, '');
+}
+
 /** One logged set: number, previous, editable weight/reps, completion toggle. */
 export const WorkoutSetRow = React.memo(function WorkoutSetRowBase({
   index,
@@ -42,6 +59,11 @@ export const WorkoutSetRow = React.memo(function WorkoutSetRowBase({
       { text: 'Remove', style: 'destructive', onPress: onRemove },
     ]);
   };
+
+  // A set may only be ticked once both fields hold a real number;
+  // unticking an already-completed set is always allowed.
+  const hasValues = parseNumericField(set.weight) != null && parseNumericField(set.reps) != null;
+  const checkDisabled = !set.completed && !hasValues;
 
   return (
     <Pressable
@@ -61,37 +83,43 @@ export const WorkoutSetRow = React.memo(function WorkoutSetRowBase({
       <View style={columns.value}>
         <TextInput
           value={set.weight}
-          onChangeText={onChangeWeight}
+          onChangeText={value => onChangeWeight(sanitizeWeight(value))}
           placeholder="0"
           placeholderTextColor={colors.placeholder}
           selectionColor={colors.primary}
           keyboardType="numeric"
           maxLength={6}
-          style={styles.input}
+          style={[styles.input, set.prefilled && styles.inputPrefilled]}
           accessibilityLabel={`Set ${index + 1} weight in kilograms`}
         />
       </View>
       <View style={columns.value}>
         <TextInput
           value={set.reps}
-          onChangeText={onChangeReps}
+          onChangeText={value => onChangeReps(sanitizeReps(value))}
           placeholder="0"
           placeholderTextColor={colors.placeholder}
           selectionColor={colors.primary}
           keyboardType="numeric"
           maxLength={4}
-          style={styles.input}
+          style={[styles.input, set.prefilled && styles.inputPrefilled]}
           accessibilityLabel={`Set ${index + 1} repetitions`}
         />
       </View>
       <View style={columns.check}>
         <Pressable
           accessibilityRole="checkbox"
-          accessibilityState={{ checked: set.completed }}
+          accessibilityState={{ checked: set.completed, disabled: checkDisabled }}
           accessibilityLabel={`Set ${index + 1} completed`}
+          accessibilityHint={checkDisabled ? 'Enter weight and reps first' : undefined}
+          disabled={checkDisabled}
           onPress={onToggleComplete}
           hitSlop={spacing.sm}
-          style={[styles.checkbox, set.completed && styles.checkboxChecked]}
+          style={[
+            styles.checkbox,
+            set.completed && styles.checkboxChecked,
+            checkDisabled && styles.checkboxDisabled,
+          ]}
         >
           {set.completed ? <CheckIcon color={colors.textOnPrimary} size={18} /> : null}
         </Pressable>
@@ -144,6 +172,11 @@ const styles = StyleSheet.create({
     borderRadius: radius.sm,
     backgroundColor: colors.surfaceElevated,
   },
+  // Values carried over from the previous set look like placeholders until
+  // the user edits or completes the set.
+  inputPrefilled: {
+    color: colors.placeholder,
+  },
   checkbox: {
     width: CHECK_SIZE,
     height: CHECK_SIZE,
@@ -156,5 +189,8 @@ const styles = StyleSheet.create({
   checkboxChecked: {
     backgroundColor: colors.primary,
     borderColor: colors.primary,
+  },
+  checkboxDisabled: {
+    opacity: 0.4,
   },
 });

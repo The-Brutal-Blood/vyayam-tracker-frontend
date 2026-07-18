@@ -111,16 +111,18 @@ export const WorkoutExerciseCard = React.memo(function WorkoutExerciseCardBase({
       </View>
 
       {exercise.sets.map((set, index) => (
-        <WorkoutSetRow
-          key={set.workoutSetId}
-          index={index}
-          set={set}
-          previous={previousBySetNumber.get(set.setNumber)}
-          onChangeWeight={value => onChangeSet(set.workoutSetId, 'weight', value)}
-          onChangeReps={value => onChangeSet(set.workoutSetId, 'reps', value)}
-          onToggleComplete={() => onToggleSet(set.workoutSetId)}
-          onRemove={() => onRemoveSet(set.workoutSetId)}
-        />
+        <React.Fragment key={set.workoutSetId}>
+          {index > 0 ? <View style={styles.setDivider} /> : null}
+          <WorkoutSetRow
+            index={index}
+            set={set}
+            previous={previousBySetNumber.get(set.setNumber)}
+            onChangeWeight={value => onChangeSet(set.workoutSetId, 'weight', value)}
+            onChangeReps={value => onChangeSet(set.workoutSetId, 'reps', value)}
+            onToggleComplete={() => onToggleSet(set.workoutSetId)}
+            onRemove={() => onRemoveSet(set.workoutSetId)}
+          />
+        </React.Fragment>
       ))}
 
       <Pressable
@@ -194,6 +196,10 @@ const styles = StyleSheet.create({
     gap: spacing.xs,
     marginTop: spacing.sm,
     paddingBottom: spacing.sm,
+  },
+  setDivider: {
+    height: 1.5,
+    backgroundColor: colors.divider,
   },
   addSet: {
     flexDirection: 'row',

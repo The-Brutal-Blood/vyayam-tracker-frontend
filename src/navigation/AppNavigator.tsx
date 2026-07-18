@@ -263,7 +263,13 @@ export function AppNavigator() {
       <Stack.Screen
         name="AddExercise"
         component={AddExerciseRoute}
-        options={{ presentation: 'modal', animation: 'slide_from_bottom' }}
+        // gestureEnabled:false so a swipe-down can't silently discard the
+        // in-progress exercise selection — Cancel is the only way out.
+        options={{
+          presentation: 'modal',
+          animation: 'slide_from_bottom',
+          gestureEnabled: false,
+        }}
       />
       <Stack.Screen
         name="ExerciseDetail"

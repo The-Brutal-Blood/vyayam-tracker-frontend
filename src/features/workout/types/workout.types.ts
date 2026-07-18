@@ -160,6 +160,12 @@ export interface WorkoutSetState {
   weight: string;
   reps: string;
   completed: boolean;
+  /**
+   * Weight/reps were copied from the previous set by "Add Set" and not yet
+   * touched by the user — rendered dimmed, like a placeholder. Cleared on
+   * edit or completion.
+   */
+  prefilled?: boolean;
 }
 
 export interface WorkoutExerciseState {
